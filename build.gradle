@@ -1,0 +1,12 @@
+plugins {
+    id 'org.spongepowered.plugin' version '0.8.1'
+}
+
+group 'io.github.icohedron.sleepvote'
+version = '0.0.1'
+
+description = 'A sleep vote system. When a set percentage of players in a world are sleeping, the time will be set to morning.'
+
+dependencies {
+    compile 'org.spongepowered:spongeapi:5.1.0'
+}
