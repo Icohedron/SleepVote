@@ -25,7 +25,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-@Plugin(id = "sleepvote", name = "Sleep Vote", version = "0.0.1")
+@Plugin(id = "sleepvote", name = "Sleep Vote", version = "0.0.2")
 public class SleepVote {
 
     private static final float  DEFAULT_PERCENT = 0.5f;
