@@ -26,7 +26,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-@Plugin(id = "sleepvote", name = "Sleep Vote", version = "0.0.3")
+@Plugin(id = "sleepvote", name = "Sleep Vote")
 public class SleepVote {
 
     private static final float  DEFAULT_PERCENT = 0.5f;
@@ -118,7 +118,7 @@ public class SleepVote {
             }
             if (sleeping.get(world).size() >= requiredPlayerCount(world)) {
                 setTicksToMorningRelativeToDaysAlive(world.getProperties());
-                worldMessage(world, "Wakey wakey, rise and shine!");
+                worldMessage(world, successMessage);
                 sleeping.get(world).removeAll(sleeping.get(world));
             }
         }
