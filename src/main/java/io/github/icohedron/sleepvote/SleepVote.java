@@ -12,7 +12,6 @@ import org.spongepowered.api.entity.living.player.Player;
 import org.spongepowered.api.event.Listener;
 import org.spongepowered.api.event.action.SleepingEvent;
 import org.spongepowered.api.event.game.state.GameInitializationEvent;
-import org.spongepowered.api.event.network.ClientConnectionEvent;
 import org.spongepowered.api.plugin.Plugin;
 import org.spongepowered.api.text.Text;
 import org.spongepowered.api.text.format.TextColors;
@@ -90,10 +89,8 @@ public class SleepVote {
         }
 
         if (sleeping.get(world).add(player.get())) {
-            String message = player.get().getName() + " wants to sleep! " + sleeping.get(world).size() + "/" + (int) Math.ceil(world.getPlayers().size() * percent);
+            String message = player.get().getName() + " wants to sleep! " + sleeping.get(world).size() + "/" + requiredPlayerCount(world);
             worldMessage(world, message);
-
-            testConditions(world);
         }
     }
 
@@ -106,51 +103,22 @@ public class SleepVote {
 
         World world = player.get().getWorld();
         if (sleeping.get(world).remove(player.get())) {
-            String message = player.get().getName() + " left their bed! " + sleeping.get(world).size() + "/" + (int) Math.ceil(world.getPlayers().size() * percent);
+            String message = player.get().getName() + " left their bed! " + sleeping.get(world).size() + "/" + requiredPlayerCount(world);
             worldMessage(world, message);
         }
     }
 
     @Listener
-    public void onClientJoin(ClientConnectionEvent.Join event) {
-        Optional<Player> player = event.getCause().first(Player.class);
-        if (!player.isPresent()) {
-            return;
-        }
-
-        World world = player.get().getWorld();
-        if (!sleeping.containsKey(world)) {
-            sleeping.put(world, new HashSet<>());
-        }
-        testConditions(world);
-    }
-
-    @Listener
-    public void onClientDisconnect(ClientConnectionEvent.Disconnect event) {
-        Optional<Player> player = event.getCause().first(Player.class);
-        if (!player.isPresent()) {
-            return;
-        }
-        World world = player.get().getWorld();
-        if (!sleeping.containsKey(world)) {
-            sleeping.put(world, new HashSet<>());
-        }
-        sleeping.get(world).remove(player.get());
-        testConditions(world, 1);
-    }
-
-    private void testConditions(World world) {
-        testConditions(world, 0);
-    }
-
-    private void testConditions(World world, int playerCountOffset) {
-        if (sleeping.get(world).isEmpty()) {
-            return;
-        }
-        if (sleeping.get(world).size() >= (int)Math.ceil((world.getPlayers().size() - playerCountOffset) * percent)) {
-            world.getProperties().setWorldTime(0);
-            worldMessage(world, "Wakey wakey, rise and shine!");
-            sleeping.get(world).removeAll(sleeping.get(world));
+    public void onPlayerSleepTick(SleepingEvent.Tick event) {
+        for (World world : sleeping.keySet()) {
+            if (sleeping.get(world).isEmpty()) {
+                continue;
+            }
+            if (sleeping.get(world).size() >= requiredPlayerCount(world)) {
+                world.getProperties().setWorldTime(0);
+                worldMessage(world, "Wakey wakey, rise and shine!");
+                sleeping.get(world).removeAll(sleeping.get(world));
+            }
         }
     }
 
@@ -169,8 +137,12 @@ public class SleepVote {
 
         try {
             configLoader.save(rootNode);
-        } catch (IOException e2) {
+        } catch (IOException e) {
             logger.error("Failed to create default configuration file! Aborting...");
         }
+    }
+
+    private int requiredPlayerCount(World world) {
+        return (int) Math.ceil(world.getPlayers().size() * percent);
     }
 }
