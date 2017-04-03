@@ -3,7 +3,7 @@ plugins {
 }
 
 group 'io.github.icohedron.sleepvote'
-version = '0.0.2'
+version = '0.0.3'
 
 description = 'A sleep vote system. When a set percentage of players in a world are sleeping, the time will be set to morning.'
 

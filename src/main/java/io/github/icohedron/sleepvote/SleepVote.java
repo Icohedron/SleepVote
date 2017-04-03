@@ -16,6 +16,7 @@ import org.spongepowered.api.plugin.Plugin;
 import org.spongepowered.api.text.Text;
 import org.spongepowered.api.text.format.TextColors;
 import org.spongepowered.api.world.World;
+import org.spongepowered.api.world.storage.WorldProperties;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -25,7 +26,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-@Plugin(id = "sleepvote", name = "Sleep Vote", version = "0.0.2")
+@Plugin(id = "sleepvote", name = "Sleep Vote", version = "0.0.3")
 public class SleepVote {
 
     private static final float  DEFAULT_PERCENT = 0.5f;
@@ -84,7 +85,8 @@ public class SleepVote {
             sleeping.put(world, new HashSet<>());
         }
 
-        if (!(world.getProperties().getWorldTime() >= 12541 && world.getProperties().getWorldTime() <= 23458)) {
+        long localWorldTime = world.getProperties().getWorldTime() % 24000;
+        if (!(localWorldTime >= 12541 && localWorldTime <= 23458)) {
             return;
         }
 
@@ -115,7 +117,7 @@ public class SleepVote {
                 continue;
             }
             if (sleeping.get(world).size() >= requiredPlayerCount(world)) {
-                world.getProperties().setWorldTime(0);
+                setTicksToMorningRelativeToDaysAlive(world.getProperties());
                 worldMessage(world, "Wakey wakey, rise and shine!");
                 sleeping.get(world).removeAll(sleeping.get(world));
             }
@@ -144,5 +146,13 @@ public class SleepVote {
 
     private int requiredPlayerCount(World world) {
         return (int) Math.ceil(world.getPlayers().size() * percent);
+    }
+
+    // Method by FerusGrim -- https://forums.spongepowered.org/t/set-time-to-start-of-day-sleepingevent/9605/2?u=icohedron
+    public void setTicksToMorningRelativeToDaysAlive(WorldProperties properties) {
+        long alive = properties.getWorldTime();
+        double days = alive / 24000;
+        long setTo = ((int) Math.ceil(days)) * 24000;
+        properties.setWorldTime(setTo);
     }
 }
