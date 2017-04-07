@@ -6,6 +6,7 @@ This should work independently for each world. (i.e. a sleep vote in one world w
 ## Commands
 ```
 # Reloads the configuration file
+# Permission: sleepvote.command.reload
 /sleepvote reload
 ```
 
