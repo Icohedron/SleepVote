@@ -175,11 +175,11 @@ public class SleepVote {
         for (World world : sleeping.keySet()) {
             Set<Player> sleepingPlayers = sleeping.get(world);
             if (!sleepingPlayers.isEmpty()) {
-                int num_sleeping = sleepingPlayers.size();
-                int active = getRequiredPlayerCount(world);
+                int numSleeping = sleepingPlayers.size();
+                int required = getRequiredPlayerCount(world);
                 WorldProperties worldProperties = world.getProperties();
 
-                if (num_sleeping >= active) {
+                if (numSleeping >= required) {
                     worldProperties.setWorldTime(((int) Math.ceil(worldProperties.getWorldTime() / 24000.0f)) * 24000); // Set time to the next multiple 24000 ticks (equivalent to '/time set 0')
                     sendWorldMessage(world, parseMessage(wakeupMessage, world, Optional.empty()));
                     sleepingPlayers.clear();
@@ -226,7 +226,7 @@ public class SleepVote {
 //        return player.get(Keys.IS_SLEEPING).filter(k -> k.booleanValue()).isPresent();
 
         // Workaround: takes advantage of the fact that the player's hitbox shrinks to a (almost) perfect 0.2*0.2*0.2 cube while in a bed.
-        // But we only need to check the floored y-values! The player's hitbox is normally greater than 1, so if the floored y-value is not 0, then the player must be in a bed!
+        // But we only need to check the floored y-values! The player's hitbox is normally greater than 1, so if the floored y-value is 0, then the player must be in a bed! If it's equal to 1 or more, then the player is not in bed.
         return player.getBoundingBox().filter(b -> b.getSize().getFloorY() == 0).isPresent();
     }
 
