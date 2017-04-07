@@ -41,4 +41,5 @@ This should work independently for each world. (i.e. a sleep vote in one world w
 
 ## Links
 [W.I.P. Plugins Sponge Forum Thread](https://forums.spongepowered.org/t/sleep-vote-v0-4-0/18289)
+
 [Sponge Ore Repository](https://ore.spongepowered.org/Icohedron/Sleep-Vote)
