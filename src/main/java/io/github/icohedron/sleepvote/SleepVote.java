@@ -6,11 +6,14 @@ import ninja.leaping.configurate.hocon.HoconConfigurationLoader;
 import ninja.leaping.configurate.loader.ConfigurationLoader;
 import org.slf4j.Logger;
 import org.spongepowered.api.Sponge;
+import org.spongepowered.api.command.CommandResult;
+import org.spongepowered.api.command.spec.CommandSpec;
 import org.spongepowered.api.config.ConfigDir;
 import org.spongepowered.api.entity.living.player.Player;
 import org.spongepowered.api.event.Listener;
 import org.spongepowered.api.event.action.SleepingEvent;
 import org.spongepowered.api.event.filter.cause.First;
+import org.spongepowered.api.event.game.GameReloadEvent;
 import org.spongepowered.api.event.game.state.GameInitializationEvent;
 import org.spongepowered.api.plugin.Plugin;
 import org.spongepowered.api.scheduler.Task;
@@ -32,10 +35,8 @@ import java.util.concurrent.TimeUnit;
 @Plugin(id = "sleepvote", name = "SleepVote")
 public class SleepVote {
 
-    private static final String PLUGIN_ID = "sleepvote";
-
     @Inject
-    @ConfigDir(sharedRoot = true)
+    @ConfigDir(sharedRoot = false)
     private Path configurationDirectory;
 
     @Inject
@@ -54,30 +55,25 @@ public class SleepVote {
 
     @Listener
     public void onInitializationEvent(GameInitializationEvent event) {
-        configurationDirectory = configurationDirectory.resolve(PLUGIN_ID);
         sleeping = new HashMap<>();
         playerSleepRequests = new HashMap<>();
         loadConfiguration();
-        // TODO: Commands (e.g. '/sleepvote reload', '/sleepvote ignore <player>', '/sleepvote unignore <player>')
+        initializeCommands();
     }
 
-    private void loadConfiguration() {
-        Path settingsPath = configurationDirectory.resolve(PLUGIN_ID + ".conf");
-
-        ConfigurationLoader defaultConfigurationLoader = HoconConfigurationLoader.builder().setURL(Sponge.getAssetManager().getAsset(this, "default_" + PLUGIN_ID + ".conf").get().getUrl()).build();
-        Optional<ConfigurationNode> defaultRootNode = getRootNode(defaultConfigurationLoader);
-
-        ConfigurationLoader configurationLoader = HoconConfigurationLoader.builder().setPath(settingsPath).build();
+    public void loadConfiguration() {
+        Path configurationFilePath = configurationDirectory.resolve("sleepvote.conf");
+        ConfigurationLoader configurationLoader = HoconConfigurationLoader.builder().setPath(configurationFilePath).build();
         Optional<ConfigurationNode> rootNode = getRootNode(configurationLoader);
 
-        if (!rootNode.filter(node -> !node.isVirtual()).isPresent()) {
+        if (!rootNode.filter(node -> !node.getChildrenMap().isEmpty()).isPresent()) {
 
-            if (Files.notExists(settingsPath)) { // Probably the case if the root node is virtual.
+            if (Files.notExists(configurationFilePath)) { // Probably the case if the root node is virtual.
                 logger.info("No configuration file detected. Creating configuration file...");
                 try {
                     Files.createDirectories(configurationDirectory);
-                    Sponge.getAssetManager().getAsset(this, "default_" + PLUGIN_ID + ".conf").get().copyToFile(settingsPath);
-                    logger.info("Finished! Configuration file saved to \"" + settingsPath.toString() + "\"");
+                    Sponge.getAssetManager().getAsset(this, "default_sleepvote.conf").get().copyToFile(configurationFilePath);
+                    logger.info("Finished! Configuration file saved to \"" + configurationFilePath.toString() + "\"");
                 } catch (IOException e) {
                     logger.error("Failed to create configuration file! Aborting operation and falling back to default configuration.");
                     e.printStackTrace();
@@ -87,7 +83,8 @@ public class SleepVote {
             }
 
             // In both cases, just load the default configuration.
-            rootNode = defaultRootNode;
+            configurationLoader = HoconConfigurationLoader.builder().setURL(Sponge.getAssetManager().getAsset(this, "default_sleepvote.conf").get().getUrl()).build();
+            rootNode = getRootNode(configurationLoader);
         }
 
         ConfigurationNode root = rootNode.get();
@@ -97,6 +94,8 @@ public class SleepVote {
         wakeupMessage = root.getNode("messages", "wakeup").getString();
         enterBedMessage = root.getNode("messages", "enter_bed").getString();
         exitBedMessage = root.getNode("messages", "exit_bed").getString();
+
+        // Hard-coded defaults in case these values are invalid or missing
 
         if (requiredPercentSleeping <= 0.0f || requiredPercentSleeping > 1.0f) {
             logger.info("Invalid or missing required_percent_sleeping value. Using default of 0.5");
@@ -129,6 +128,28 @@ public class SleepVote {
         }
     }
 
+    private void initializeCommands() {
+        CommandSpec reloadCommand = CommandSpec.builder()
+                .description(Text.of("Reload configuration"))
+                .permission("sleepvote.command.reload")
+                .executor((src, args) -> {
+                    loadConfiguration();
+                    src.sendMessage(addPrefix(Text.of("Finished reloading configuration")));
+                    return CommandResult.success();
+                })
+                .build();
+
+        // TODO: Commands (e.g. '/sleepvote ignore <player>', '/sleepvote unignore <player>')
+
+        CommandSpec sleepvoteCommand = CommandSpec.builder()
+                .description(Text.of("The one command for all of SleepVote"))
+                .permission("sleepvote.command")
+                .child(reloadCommand, "reload", "r")
+                .build();
+
+        Sponge.getCommandManager().register(this, sleepvoteCommand, "sleepvote", "sv");
+    }
+
     //// Sleeping Mechanics ////
 
     @Listener
@@ -136,6 +157,8 @@ public class SleepVote {
         if (playerSleepRequests.containsKey(player)) {
             playerSleepRequests.get(player).cancel();
         }
+
+        player.setSleepingIgnored(true); // Turn off vanilla sleeping to prevent a bug where the time advances (or doesn't, if /gamerule doDaylightCycle false, in which case it just kicks players out of bed without doing anything) but the plugin doesn't display the wakeup message.
 
         playerSleepRequests.put(player, Task.builder().execute(() -> {
             if (isInBed(player)) {
@@ -153,7 +176,7 @@ public class SleepVote {
             Set<Player> sleepingPlayers = sleeping.get(world);
             if (!sleepingPlayers.isEmpty()) {
                 int num_sleeping = sleepingPlayers.size();
-                int active = getActivePlayerCount(world);
+                int active = getRequiredPlayerCount(world);
                 WorldProperties worldProperties = world.getProperties();
 
                 if (num_sleeping >= active) {
@@ -168,24 +191,30 @@ public class SleepVote {
     @Listener
     public void onPostSleepingEvent(SleepingEvent.Post event, @First Player player) {
         World world = player.getWorld();
+        sleeping.computeIfAbsent(world, w -> new HashSet<>());
+        player.setSleepingIgnored(false);
         if (sleeping.get(world).remove(player)) {
             sendWorldMessage(world, parseMessage(exitBedMessage, world, Optional.of(player)));
         }
     }
 
+    private Text addPrefix(Text text) {
+        Text prefix = Text.of(TextColors.GREEN, "[", TextColors.RED, "SleepVote", TextColors.GREEN, "] ");
+        return Text.of(prefix, text);
+    }
+
     private Text parseMessage(String message, World world, Optional<Player> player) {
         String playerName = player.isPresent() ? player.get().getName() : "Undefined";
         int sleepingPlayers = sleeping.get(world).size();
-        int active = getActivePlayerCount(world);
-        int percent = (int) (sleepingPlayers * 100.0f / active);
+        int required = getRequiredPlayerCount(world);
+        int percent = (int) (sleepingPlayers * 100.0f / required);
 
-        Text prefix = Text.of(TextColors.GREEN, "[", TextColors.RED, "SleepVote", TextColors.GREEN, "] ");
         Text text = Text.of(TextColors.YELLOW, message.replace("<player>", playerName)
                                .replace("<sleeping>", Integer.toString(sleepingPlayers))
-                               .replace("<active>", Integer.toString(active))
+                               .replace("<required>", Integer.toString(required))
                                .replace("<percent>", Integer.toString(percent)));
 
-        Text result = enablePrefix ? Text.of(prefix, text) : text;
+        Text result = enablePrefix ? addPrefix(text) : text;
         if (messageLogging) {
             logger.info("[" + world.getName() + "] " + result.toPlain());
         }
@@ -207,8 +236,13 @@ public class SleepVote {
         }
     }
 
-    private int getActivePlayerCount(World world) {
-        // TODO: Add exclusions for specific players (such as vanished, afk, etc.)
+    private int getRequiredPlayerCount(World world) {
+        // TODO: Automatically add exclusions for specific players (such as vanished, afk, etc.)
         return (int) Math.ceil(world.getPlayers().size() * requiredPercentSleeping);
+    }
+
+    @Listener
+    public void onReloadEvent(GameReloadEvent event) {
+        loadConfiguration();
     }
 }
