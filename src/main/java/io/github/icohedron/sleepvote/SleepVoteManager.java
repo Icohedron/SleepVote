@@ -38,6 +38,8 @@ public class SleepVoteManager {
 
     private AFKManager afkManager;
 
+    private Set<Player> hiddenPlayers;
+
     public SleepVoteManager(SleepVote sleepVote, boolean enablePrefix, boolean messageLogging, boolean ignoreAfkPlayers, float requiredPercentSleeping,
                             String wakeupMessage, String enterBedMessage, String exitBedMessage) {
 
@@ -53,6 +55,7 @@ public class SleepVoteManager {
         messenger = sleepVote.getMessenger();
         sleeping = new HashMap<>();
         playerSleepRequests = new HashMap<>();
+        hiddenPlayers = new HashSet<>();
 
         if (ignoreAfkPlayers) {
             Optional<PluginContainer> nucleus = Sponge.getPluginManager().getPlugin("nucleus");
@@ -67,14 +70,18 @@ public class SleepVoteManager {
 
     @Listener
     public void onPreSleepingEvent(SleepingEvent.Pre event, @First Player player) {
+        player.setSleepingIgnored(true); // Turn off vanilla sleeping to prevent a bug where the time advances (or doesn't, if /gamerule doDaylightCycle false, in which case it just kicks players out of bed without doing anything) but the plugin doesn't display the wakeup message.
+
         if (playerSleepRequests.containsKey(player)) {
             playerSleepRequests.get(player).cancel();
         }
-        player.setSleepingIgnored(true); // Turn off vanilla sleeping to prevent a bug where the time advances (or doesn't, if /gamerule doDaylightCycle false, in which case it just kicks players out of bed without doing anything) but the plugin doesn't display the wakeup message.
 
         playerSleepRequests.put(player, Task.builder().execute(() -> {
-            if (isInBed(player)) {
+            if (isPlayerHidden(player)) {
+                return; // This player is ignored.
+            }
 
+            if (isInBed(player)) {
                 World world = player.getWorld();
                 sleeping.computeIfAbsent(world, w -> new HashSet<>());
 
@@ -102,6 +109,10 @@ public class SleepVoteManager {
             int numSleeping = sleepingPlayers.size();
             int required = getRequiredPlayerCount(world);
             WorldProperties worldProperties = world.getProperties();
+
+            if (numSleeping == 0) {
+                continue;
+            }
 
             if (numSleeping >= required) {
                 worldProperties.setWorldTime(((int) Math.ceil(worldProperties.getWorldTime() / 24000.0f)) * 24000); // Set time to the next multiple 24000 ticks (equivalent to '/time set 0')
@@ -155,13 +166,30 @@ public class SleepVoteManager {
         if (afkManager != null) {
             players.removeAll(afkManager.getImmutableAfkPlayerSet());
         }
+        players.removeAll(hiddenPlayers);
         return (int) Math.ceil(players.size() * requiredPercentSleeping);
     }
 
-    public void dispose() {
+    public void unregisterListeners() {
         if (afkManager != null) {
             Sponge.getEventManager().unregisterListeners(afkManager);
         }
+    }
+
+    public boolean hidePlayer(Player player) {
+        return hiddenPlayers.add(player);
+    }
+
+    public boolean unhidePlayer(Player player) {
+        return hiddenPlayers.remove(player);
+    }
+
+    public boolean isPlayerHidden(Player player) {
+        return hiddenPlayers.contains(player);
+    }
+
+    public Set<Player> getImmutableHiddenPlayers() {
+        return new HashSet<>(hiddenPlayers);
     }
 
 }

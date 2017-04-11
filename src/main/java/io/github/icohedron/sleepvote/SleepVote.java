@@ -9,6 +9,7 @@ import org.spongepowered.api.Sponge;
 import org.spongepowered.api.command.CommandResult;
 import org.spongepowered.api.command.spec.CommandSpec;
 import org.spongepowered.api.config.ConfigDir;
+import org.spongepowered.api.entity.living.player.Player;
 import org.spongepowered.api.event.Listener;
 import org.spongepowered.api.event.game.GameReloadEvent;
 import org.spongepowered.api.event.game.state.GameInitializationEvent;
@@ -38,6 +39,7 @@ public class SleepVote {
         loadConfiguration();
         initializeCommands();
         logger.info("Finished initialization");
+        // TODO: Saving of hidden players for persistence
     }
 
     private void loadConfiguration() {
@@ -128,12 +130,31 @@ public class SleepVote {
                 })
                 .build();
 
-        // TODO: Commands (e.g. '/sleepvote ignore <player>', '/sleepvote unignore <player>')
+        CommandSpec hideMeCommand = CommandSpec.builder()
+                .description(Text.of("Toggles whether you are hidden from SleepVote"))
+                .permission("sleepvote.command.hideme")
+                .executor((src, args) -> {
+                    if (src instanceof Player) {
+                        Player player = (Player) src;
+                        if (sleepVoteManager.isPlayerHidden(player)) {
+                            sleepVoteManager.unhidePlayer(player);
+                            src.sendMessage(messenger.addPrefix(Text.of("You have been unhidden from SleepVote.")));
+                        } else {
+                            sleepVoteManager.hidePlayer(player);
+                            src.sendMessage(messenger.addPrefix(Text.of("You have been hidden from SleepVote.")));
+                        }
+                    } else {
+                        src.sendMessage(messenger.addPrefix(Text.of("This command can only be executed by a player.")));
+                    }
+                    return CommandResult.success();
+                })
+                .build();
 
         CommandSpec sleepvoteCommand = CommandSpec.builder()
                 .description(Text.of("The one command for all of SleepVote"))
                 .permission("sleepvote.command")
                 .child(reloadCommand, "reload", "r")
+                .child(hideMeCommand, "hideme")
                 .build();
 
         Sponge.getCommandManager().register(this, sleepvoteCommand, "sleepvote", "sv");
@@ -145,7 +166,7 @@ public class SleepVote {
     }
 
     public void reload() {
-        sleepVoteManager.dispose();
+        sleepVoteManager.unregisterListeners();
         Sponge.getEventManager().unregisterListeners(sleepVoteManager);
         loadConfiguration();
     }
