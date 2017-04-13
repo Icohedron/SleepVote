@@ -30,7 +30,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
-@Plugin(id = "sleepvote", name = "SleepVote", version = "0.4.0",
+@Plugin(id = "sleepvote", name = "SleepVote", version = "0.5.0",
         dependencies = @Dependency(id = "nucleus", version = "0.21.0-S5.1", optional = true))
 public class SleepVote {
 
@@ -105,8 +105,8 @@ public class SleepVote {
         // Hard-coded defaults in case these values are invalid or missing
 
         if (nightTransitionTime < 0) {
-            nightTransitionTime = 200;
-            logger.info("Invalid or missing night_transition_time value. Using default of 200");
+            nightTransitionTime = 300;
+            logger.info("Invalid or missing night_transition_time value. Using default of 300");
         }
 
         if (requiredPercentSleeping <= 0.0f || requiredPercentSleeping > 1.0f) {
