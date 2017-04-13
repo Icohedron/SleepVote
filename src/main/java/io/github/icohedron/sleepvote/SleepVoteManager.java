@@ -12,11 +12,13 @@ import org.spongepowered.api.text.Text;
 import org.spongepowered.api.world.World;
 import org.spongepowered.api.world.storage.WorldProperties;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 public class SleepVoteManager {
@@ -38,7 +40,7 @@ public class SleepVoteManager {
 
     private AFKManager afkManager;
 
-    private Set<Player> hiddenPlayers;
+    private Set<UUID> hiddenPlayers;
 
     public SleepVoteManager(SleepVote sleepVote, boolean enablePrefix, boolean messageLogging, boolean ignoreAfkPlayers, float requiredPercentSleeping,
                             String wakeupMessage, String enterBedMessage, String exitBedMessage) {
@@ -76,12 +78,13 @@ public class SleepVoteManager {
             playerSleepRequests.get(player).cancel();
         }
 
-        playerSleepRequests.put(player, Task.builder().execute(() -> {
-            if (isPlayerHidden(player)) {
-                return; // This player is ignored.
-            }
+        if (isPlayerHidden(player)) {
+            return; // This player is ignored.
+        }
 
+        playerSleepRequests.put(player, Task.builder().execute(() -> {
             if (isInBed(player)) {
+
                 World world = player.getWorld();
                 sleeping.computeIfAbsent(world, w -> new HashSet<>());
 
@@ -166,7 +169,7 @@ public class SleepVoteManager {
         if (afkManager != null) {
             players.removeAll(afkManager.getImmutableAfkPlayerSet());
         }
-        players.removeAll(hiddenPlayers);
+        players.removeIf(p -> hiddenPlayers.contains(p.getUniqueId()));
         return (int) Math.ceil(players.size() * requiredPercentSleeping);
     }
 
@@ -176,19 +179,23 @@ public class SleepVoteManager {
         }
     }
 
-    public boolean hidePlayer(Player player) {
-        return hiddenPlayers.add(player);
+    public void addUuidsToHiddenPlayersSet(Collection<UUID> uuids) {
+        hiddenPlayers.addAll(uuids);
     }
 
-    public boolean unhidePlayer(Player player) {
-        return hiddenPlayers.remove(player);
+    public void hidePlayer(Player player) {
+        hiddenPlayers.add(player.getUniqueId());
+    }
+
+    public void unhidePlayer(Player player) {
+        hiddenPlayers.remove(player.getUniqueId());
     }
 
     public boolean isPlayerHidden(Player player) {
-        return hiddenPlayers.contains(player);
+        return hiddenPlayers.contains(player.getUniqueId());
     }
 
-    public Set<Player> getImmutableHiddenPlayers() {
+    public HashSet<UUID> getImmutableHiddenPlayers() {
         return new HashSet<>(hiddenPlayers);
     }
 

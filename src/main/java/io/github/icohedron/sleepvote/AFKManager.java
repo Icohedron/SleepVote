@@ -24,7 +24,7 @@ public class AFKManager {
         if (!sleepVoteManager.isInBed(player)) {
             // For all intents and purposes, a sleeping AFK player is technically not AFK
             afkPlayers.add(player);
-            // Don't worry, a player pressing the leave bed button will trigger NucleusAFKEvent.ReturningFromAFK
+            // Don't worry, a player leaving a bed will trigger NucleusAFKEvent.ReturningFromAFK
         }
     }
 
