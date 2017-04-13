@@ -38,7 +38,6 @@ public class SleepVote {
     private static final String HIDEME_DATA_CONFIG_NAME = "hideme.dat";
 
     @Inject @ConfigDir(sharedRoot = false) private Path configurationDirectory;
-    private ConfigurationLoader<CommentedConfigurationNode> dataConfigurationLoader;
     @Inject private Logger logger;
 
     private Messenger messenger;
