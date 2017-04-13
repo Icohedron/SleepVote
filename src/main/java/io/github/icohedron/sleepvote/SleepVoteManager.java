@@ -33,6 +33,7 @@ public class SleepVoteManager {
     private boolean enablePrefix;
     private boolean messageLogging;
 
+    private int nightTransitionStep;
     private float requiredPercentSleeping;
     private String wakeupMessage;
     private String enterBedMessage;
@@ -42,8 +43,8 @@ public class SleepVoteManager {
 
     private Set<UUID> hiddenPlayers;
 
-    public SleepVoteManager(SleepVote sleepVote, boolean enablePrefix, boolean messageLogging, boolean ignoreAfkPlayers, float requiredPercentSleeping,
-                            String wakeupMessage, String enterBedMessage, String exitBedMessage) {
+    public SleepVoteManager(SleepVote sleepVote, boolean enablePrefix, boolean messageLogging, boolean ignoreAfkPlayers, int nightTransitionTime,
+                            float requiredPercentSleeping, String wakeupMessage, String enterBedMessage, String exitBedMessage) {
 
         this.sleepVote = sleepVote;
         this.enablePrefix = enablePrefix;
@@ -53,6 +54,7 @@ public class SleepVoteManager {
         this.enterBedMessage = enterBedMessage;
         this.exitBedMessage = exitBedMessage;
 
+        nightTransitionStep = nightTransitionTime == 0 ? (23458 - 12541) : (23458 - 12541) / nightTransitionTime; // Total duration of a Minecraft night / transition time.
         logger = sleepVote.getLogger();
         messenger = sleepVote.getMessenger();
         sleeping = new HashMap<>();
@@ -118,14 +120,26 @@ public class SleepVoteManager {
             }
 
             if (numSleeping >= required) {
-                worldProperties.setWorldTime(((int) Math.ceil(worldProperties.getWorldTime() / 24000.0f)) * 24000); // Set time to the next multiple 24000 ticks (equivalent to '/time set 0')
-                Text text = messenger.parseMessage(wakeupMessage,
-                        Optional.empty(), Optional.empty(), Optional.empty(), enablePrefix);
-                messenger.sendWorldMessage(world, text);
-                if (messageLogging) {
-                    logger.info("[" + world.getName() + "] " + text.toPlain());
+
+                long current = worldProperties.getWorldTime();
+                long target = ((long) Math.ceil(worldProperties.getWorldTime() / 23458.0f)) * 23458; // Set time to the next multiple 23458 ticks (the last tick before the players are forcefully kicked out of bed by vanilla mechanics)
+
+                long newTime = current + nightTransitionStep;
+                if (newTime > target) {
+                    newTime = target;
                 }
-                sleepingPlayers.clear();
+
+                worldProperties.setWorldTime(newTime);
+
+                if (newTime == target) {
+                    Text text = messenger.parseMessage(wakeupMessage,
+                            Optional.empty(), Optional.empty(), Optional.empty(), enablePrefix);
+                    messenger.sendWorldMessage(world, text);
+                    if (messageLogging) {
+                        logger.info("[" + world.getName() + "] " + text.toPlain());
+                    }
+                    sleepingPlayers.clear();
+                }
             }
         }
     }
@@ -164,7 +178,7 @@ public class SleepVoteManager {
 
 
     private int getRequiredPlayerCount(World world) {
-        // TODO: Automatically add exclusions for vanished players
+        // TODO: Automatically add exclusions for vanished players -- requires Nucleus to provide some sort of API for that though
         Set<Player> players = new HashSet<>(world.getPlayers());
         if (afkManager != null) {
             players.removeAll(afkManager.getImmutableAfkPlayerSet());

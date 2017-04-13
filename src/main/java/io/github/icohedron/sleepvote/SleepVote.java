@@ -96,12 +96,18 @@ public class SleepVote {
         boolean enablePrefix = root.getNode("sleepvote_prefix").getBoolean();
         boolean messageLogging = root.getNode("enable_logging").getBoolean();
         boolean ignoreAFKPlayers = root.getNode("ignore_afk_players").getBoolean();
+        int nightTransitionTime = root.getNode("night_transition_time").getInt();
         float requiredPercentSleeping = root.getNode("required_percent_sleeping").getFloat();
         String wakeupMessage = root.getNode("messages", "wakeup").getString();
         String enterBedMessage = root.getNode("messages", "enter_bed").getString();
         String exitBedMessage = root.getNode("messages", "exit_bed").getString();
 
         // Hard-coded defaults in case these values are invalid or missing
+
+        if (nightTransitionTime < 0) {
+            nightTransitionTime = 200;
+            logger.info("Invalid or missing night_transition_time value. Using default of 200");
+        }
 
         if (requiredPercentSleeping <= 0.0f || requiredPercentSleeping > 1.0f) {
             requiredPercentSleeping = 0.5f;
@@ -126,8 +132,8 @@ public class SleepVote {
         // Create the class that manages all the main functionality of SleepVote
 
         sleepVoteManager = new SleepVoteManager(this,
-                enablePrefix, messageLogging, ignoreAFKPlayers, requiredPercentSleeping,
-                wakeupMessage, enterBedMessage, exitBedMessage);
+                enablePrefix, messageLogging, ignoreAFKPlayers, nightTransitionTime,
+                requiredPercentSleeping, wakeupMessage, enterBedMessage, exitBedMessage);
         Sponge.getEventManager().registerListeners(this, sleepVoteManager);
     }
 
