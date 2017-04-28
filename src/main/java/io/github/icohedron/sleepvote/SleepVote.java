@@ -33,7 +33,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-@Plugin(id = "sleepvote", name = "SleepVote", version = "0.4.1")
+@Plugin(id = "sleepvote", name = "SleepVote", version = "0.4.2")
 public class SleepVote {
 
     @Inject
@@ -239,8 +239,7 @@ public class SleepVote {
     }
 
     private int getRequiredPlayerCount(World world) {
-        // TODO: Automatically add exclusions for specific players (such as vanished, afk, etc.)
-        return (int) Math.ceil(world.getPlayers().size() * requiredPercentSleeping);
+        return Math.round(world.getPlayers().size() * requiredPercentSleeping);
     }
 
     @Listener
