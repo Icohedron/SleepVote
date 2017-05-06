@@ -40,6 +40,13 @@ This should work independently for each world. (i.e. a sleep vote in one world w
 "enable_logging" = true
 ```
 
+## Build Instructions
+Just run the following in a terminal:
+```
+gradlew build
+```
+The plugin jar file will then appear in /build/libs
+
 ## Links
 [W.I.P. Plugins Sponge Forum Thread](https://forums.spongepowered.org/t/sleep-vote-v0-4-0/18289)
 
