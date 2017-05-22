@@ -12,16 +12,14 @@ import org.spongepowered.api.text.Text;
 import org.spongepowered.api.world.World;
 import org.spongepowered.api.world.storage.WorldProperties;
 
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
-public class SleepVoteManager {
+class SleepVoteManager {
 
     private SleepVote sleepVote;
     private Logger logger;
@@ -33,43 +31,20 @@ public class SleepVoteManager {
     private boolean enablePrefix;
     private boolean messageLogging;
 
-    private int nightTransitionStep;
     private float requiredPercentSleeping;
-    private String wakeupMessage;
-    private String enterBedMessage;
-    private String exitBedMessage;
+    private HashMap<String, String> strings; // Available strings: "wakeup_message", "enter_bed_message", "exit_bed_message"
 
     private AFKManager afkManager;
 
-    private Set<UUID> hiddenPlayers;
-
-    public SleepVoteManager(SleepVote sleepVote, boolean enablePrefix, boolean messageLogging, boolean ignoreAfkPlayers, int nightTransitionTime,
-                            float requiredPercentSleeping, String wakeupMessage, String enterBedMessage, String exitBedMessage) {
-
+    SleepVoteManager(SleepVote sleepVote, float requiredPercentSleeping, HashMap<String, String> strings) {
         this.sleepVote = sleepVote;
-        this.enablePrefix = enablePrefix;
-        this.messageLogging = messageLogging;
         this.requiredPercentSleeping = requiredPercentSleeping;
-        this.wakeupMessage = wakeupMessage;
-        this.enterBedMessage = enterBedMessage;
-        this.exitBedMessage = exitBedMessage;
+        this.strings = strings;
 
-        nightTransitionStep = nightTransitionTime == 0 ? (23458 - 12541) : (23458 - 12541) / nightTransitionTime; // Total duration of a Minecraft night / transition time.
         logger = sleepVote.getLogger();
         messenger = sleepVote.getMessenger();
         sleeping = new HashMap<>();
         playerSleepRequests = new HashMap<>();
-        hiddenPlayers = new HashSet<>();
-
-        if (ignoreAfkPlayers) {
-            Optional<PluginContainer> nucleus = Sponge.getPluginManager().getPlugin("nucleus");
-            if (nucleus.isPresent()) {
-                afkManager = new AFKManager(this);
-                Sponge.getEventManager().registerListeners(sleepVote, afkManager);
-            } else {
-                logger.warn("Nucleus not detected. Some requested functionality may be missing.");
-            }
-        }
     }
 
     @Listener
@@ -80,7 +55,7 @@ public class SleepVoteManager {
             playerSleepRequests.get(player).cancel();
         }
 
-        if (isPlayerHidden(player)) {
+        if (player.hasPermission("sleepvote.hidden")) {
             return; // This player is ignored.
         }
 
@@ -93,12 +68,13 @@ public class SleepVoteManager {
                 Set<Player> sleepingPlayers = sleeping.get(world);
                 sleepingPlayers.add(player);
 
-                Text text = messenger.parseMessage(enterBedMessage,
-                        Optional.of(sleepingPlayers.size()),
-                        Optional.of(getRequiredPlayerCount(world)),
-                        Optional.of(player.getName()),
+                Text text = messenger.parseMessage(strings.get("enter_bed_message"),
+                        sleepingPlayers.size(),
+                        getRequiredPlayerCount(world),
+                        player.getName(),
                         enablePrefix);
                 messenger.sendWorldMessage(world, text);
+                messenger.playWorldSound(world);
 
                 if (messageLogging) {
                     logger.info("[" + world.getName() + "] " + text.toPlain());
@@ -120,26 +96,17 @@ public class SleepVoteManager {
             }
 
             if (numSleeping >= required) {
-
-                long current = worldProperties.getWorldTime();
-                long target = ((long) Math.ceil(worldProperties.getWorldTime() / 23458.0f)) * 23458; // Set time to the next multiple 23458 ticks (the last tick before the players are forcefully kicked out of bed by vanilla mechanics)
-
-                long newTime = current + nightTransitionStep;
-                if (newTime > target) {
-                    newTime = target;
+                worldProperties.setWorldTime(((int) Math.ceil(worldProperties.getWorldTime() / 24000.0f)) * 24000); // Set time to the next multiple 24000 ticks (equivalent to '/time set 0')
+                worldProperties.setRaining(false);
+                worldProperties.setThundering(false);
+                Text text = messenger.parseMessage(strings.get("wakeup_message"),
+                        0, 0, "", enablePrefix);
+                messenger.sendWorldMessage(world, text);
+                messenger.playWorldSound(world);
+                if (messageLogging) {
+                    logger.info("[" + world.getName() + "] " + text.toPlain());
                 }
-
-                worldProperties.setWorldTime(newTime);
-
-                if (newTime == target) {
-                    Text text = messenger.parseMessage(wakeupMessage,
-                            Optional.empty(), Optional.empty(), Optional.empty(), enablePrefix);
-                    messenger.sendWorldMessage(world, text);
-                    if (messageLogging) {
-                        logger.info("[" + world.getName() + "] " + text.toPlain());
-                    }
-                    sleepingPlayers.clear();
-                }
+                sleepingPlayers.clear();
             }
         }
     }
@@ -153,12 +120,13 @@ public class SleepVoteManager {
 
         Set<Player> sleepingPlayers = sleeping.get(world);
         if (sleepingPlayers.remove(player)) {
-            Text text = messenger.parseMessage(exitBedMessage,
-                    Optional.of(sleepingPlayers.size()),
-                    Optional.of(getRequiredPlayerCount(world)),
-                    Optional.of(player.getName()),
+            Text text = messenger.parseMessage(strings.get("exit_bed_message"),
+                    sleepingPlayers.size(),
+                    getRequiredPlayerCount(world),
+                    player.getName(),
                     enablePrefix);
             messenger.sendWorldMessage(world, text);
+            messenger.playWorldSound(world);
 
             if (messageLogging) {
                 logger.info("[" + world.getName() + "] " + text.toPlain());
@@ -167,7 +135,7 @@ public class SleepVoteManager {
     }
 
 
-    public boolean isInBed(Player player) {
+    boolean isInBed(Player player) {
         // Doesn't work due to bug: https://forums.spongepowered.org/t/warnings-on-startup-skipping-keys/18338
 //        return player.get(Keys.IS_SLEEPING).filter(k -> k.booleanValue()).isPresent();
 
@@ -178,39 +146,36 @@ public class SleepVoteManager {
 
 
     private int getRequiredPlayerCount(World world) {
-        // TODO: Automatically add exclusions for vanished players -- requires Nucleus to provide some sort of API for that though
+        // TODO: Automatically add exclusions for vanished players -- requires Nucleus to provide some sort of API for that
         Set<Player> players = new HashSet<>(world.getPlayers());
         if (afkManager != null) {
-            players.removeAll(afkManager.getImmutableAfkPlayerSet());
+            players.removeAll(afkManager.getAfkPlayerSet());
         }
-        players.removeIf(p -> hiddenPlayers.contains(p.getUniqueId()));
+        players.removeIf(p -> p.hasPermission("sleepvote.hidden"));
         return (int) Math.ceil(players.size() * requiredPercentSleeping);
     }
 
-    public void unregisterListeners() {
+    void unregisterListeners() {
         if (afkManager != null) {
             Sponge.getEventManager().unregisterListeners(afkManager);
         }
     }
 
-    public void addUuidsToHiddenPlayersSet(Collection<UUID> uuids) {
-        hiddenPlayers.addAll(uuids);
+    void enableMessagePrefix() {
+        enablePrefix = true;
     }
 
-    public void hidePlayer(Player player) {
-        hiddenPlayers.add(player.getUniqueId());
+    void enableMessageLogging() {
+        messageLogging = true;
     }
 
-    public void unhidePlayer(Player player) {
-        hiddenPlayers.remove(player.getUniqueId());
+    void ignoreAfkPlayers() {
+        Optional<PluginContainer> nucleus = Sponge.getPluginManager().getPlugin("nucleus");
+        if (nucleus.isPresent()) {
+            afkManager = new AFKManager(this);
+            Sponge.getEventManager().registerListeners(sleepVote, afkManager);
+        } else {
+            logger.warn("Nucleus not detected. Some requested functionality may be missing.");
+        }
     }
-
-    public boolean isPlayerHidden(Player player) {
-        return hiddenPlayers.contains(player.getUniqueId());
-    }
-
-    public HashSet<UUID> getImmutableHiddenPlayers() {
-        return new HashSet<>(hiddenPlayers);
-    }
-
 }

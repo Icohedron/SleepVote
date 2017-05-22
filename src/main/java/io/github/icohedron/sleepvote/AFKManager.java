@@ -9,22 +9,21 @@ import org.spongepowered.api.event.network.ClientConnectionEvent;
 import java.util.HashSet;
 import java.util.Set;
 
-public class AFKManager {
+class AFKManager {
 
     private SleepVoteManager sleepVoteManager;
     private Set<Player> afkPlayers;
 
-    public AFKManager(SleepVoteManager sleepVoteManager) {
+    AFKManager(SleepVoteManager sleepVoteManager) {
         afkPlayers = new HashSet<>();
         this.sleepVoteManager = sleepVoteManager;
     }
 
     @Listener
     public void onPlayerGoingAFKEvent(NucleusAFKEvent.GoingAFK event, @First Player player) {
-        if (!sleepVoteManager.isInBed(player)) {
-            // For all intents and purposes, a sleeping AFK player is technically not AFK
+        if (!sleepVoteManager.isInBed(player)) { // For all intents and purposes, a sleeping AFK player is technically not AFK
             afkPlayers.add(player);
-            // Don't worry, a player leaving a bed will trigger NucleusAFKEvent.ReturningFromAFK
+            // A player leaving a bed will trigger NucleusAFKEvent.ReturningFromAFK
         }
     }
 
@@ -38,7 +37,7 @@ public class AFKManager {
         afkPlayers.remove(player);
     }
 
-    public Set<Player> getImmutableAfkPlayerSet() {
-        return new HashSet<>(afkPlayers);
+    Set<Player> getAfkPlayerSet() {
+        return afkPlayers;
     }
 }

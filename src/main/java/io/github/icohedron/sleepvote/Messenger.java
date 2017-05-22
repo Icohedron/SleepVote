@@ -1,51 +1,47 @@
 package io.github.icohedron.sleepvote;
 
+import org.spongepowered.api.effect.sound.SoundType;
+import org.spongepowered.api.effect.sound.SoundTypes;
 import org.spongepowered.api.entity.living.player.Player;
 import org.spongepowered.api.text.Text;
 import org.spongepowered.api.text.format.TextColors;
 import org.spongepowered.api.world.World;
 
-import java.util.Optional;
+class Messenger {
 
-public class Messenger {
+    private SoundType sound = SoundTypes.BLOCK_NOTE_PLING;
 
-    public Text parseMessage(String message, Optional<Integer> numSleeping, Optional<Integer> requiredSleeping, Optional<String> playerName, boolean prefix) {
-        int percent = -1;
-        if (numSleeping.isPresent() && requiredSleeping.isPresent()) {
-            percent = (int) (numSleeping.get() * 100.0f / requiredSleeping.get());
+    Text parseMessage(String message, int numSleeping, int requiredSleeping, String playerName, boolean prefix) {
+        int percent = 0;
+        if (requiredSleeping > 0) {
+            percent = (int) (numSleeping * 100.0f / requiredSleeping);
         }
 
-        String msg = new String(message);
-
-        if (numSleeping.isPresent()) {
-            msg = msg.replace("<sleeping>", Integer.toString(numSleeping.get()));
-        }
-
-        if (requiredSleeping.isPresent()) {
-            msg = msg.replace("<required>", Integer.toString(requiredSleeping.get()));
-        }
-
-        if (percent != -1) {
-            msg = msg.replace("<percent>", Integer.toString(percent));
-        }
-
-        if (playerName.isPresent()) {
-            msg = msg.replace("<player>", playerName.get());
-        }
-
+        String msg = message;
+        msg = msg.replace("<sleeping>", Integer.toString(numSleeping));
+        msg = msg.replace("<required>", Integer.toString(requiredSleeping));
+        msg = msg.replace("<percent>", Integer.toString(percent));
+        msg = msg.replace("<player>", playerName);
         Text text = Text.of(TextColors.YELLOW, msg);
 
-        Text result = prefix ? addPrefix(text) : text;
-        return result;
+        return prefix ? addPrefix(text) : text;
     }
 
-    public void sendWorldMessage(World world, Text message) {
+    void sendWorldMessage(World world, Text message) {
         for (Player p : world.getPlayers()) {
             p.sendMessage(message);
         }
     }
 
-    public Text addPrefix(Text text) {
+    void playWorldSound(World world) {
+        for (Player p : world.getPlayers()) {
+            if (!p.hasPermission("sleepvote.mute")) {
+                p.playSound(sound, p.getLocation().getPosition(), 1);
+            }
+        }
+    }
+
+    Text addPrefix(Text text) {
         Text prefix = Text.of(TextColors.GREEN, "[", TextColors.RED, "SleepVote", TextColors.GREEN, "] ");
         return Text.of(prefix, text);
     }

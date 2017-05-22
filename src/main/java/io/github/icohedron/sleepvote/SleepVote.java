@@ -1,6 +1,5 @@
 package io.github.icohedron.sleepvote;
 
-import com.google.common.reflect.TypeToken;
 import com.google.inject.Inject;
 import ninja.leaping.configurate.ConfigurationNode;
 import ninja.leaping.configurate.commented.CommentedConfigurationNode;
@@ -12,30 +11,29 @@ import org.spongepowered.api.command.CommandResult;
 import org.spongepowered.api.command.spec.CommandSpec;
 import org.spongepowered.api.config.ConfigDir;
 import org.spongepowered.api.entity.living.player.Player;
-import org.spongepowered.api.entity.living.player.User;
 import org.spongepowered.api.event.Listener;
 import org.spongepowered.api.event.game.GameReloadEvent;
 import org.spongepowered.api.event.game.state.GameInitializationEvent;
-import org.spongepowered.api.event.game.state.GameStoppingServerEvent;
 import org.spongepowered.api.plugin.Dependency;
 import org.spongepowered.api.plugin.Plugin;
-import org.spongepowered.api.service.user.UserStorageService;
+import org.spongepowered.api.service.permission.PermissionDescription;
+import org.spongepowered.api.service.permission.PermissionService;
+import org.spongepowered.api.service.permission.SubjectData;
 import org.spongepowered.api.text.Text;
+import org.spongepowered.api.util.Tristate;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Optional;
-import java.util.Set;
-import java.util.UUID;
 
 @Plugin(id = "sleepvote", name = "SleepVote", version = "0.5.0",
         dependencies = @Dependency(id = "nucleus", version = "0.21.0-S5.1", optional = true))
 public class SleepVote {
 
     private static final String SETTINGS_CONFIG_NAME = "settings.conf";
-    private static final String HIDEME_DATA_CONFIG_NAME = "hideme.dat";
 
     @Inject @ConfigDir(sharedRoot = false) private Path configurationDirectory;
     @Inject private Logger logger;
@@ -47,9 +45,9 @@ public class SleepVote {
     public void onInitializationEvent(GameInitializationEvent event) {
         messenger = new Messenger();
         loadConfiguration();
-        loadHideMeData();
         initializeCommands();
         logger.info("Finished initialization");
+        Sponge.getServiceManager().provide(PermissionService.class);
     }
 
     private void loadConfiguration() {
@@ -96,68 +94,118 @@ public class SleepVote {
         boolean enablePrefix = root.getNode("sleepvote_prefix").getBoolean();
         boolean messageLogging = root.getNode("enable_logging").getBoolean();
         boolean ignoreAFKPlayers = root.getNode("ignore_afk_players").getBoolean();
-        int nightTransitionTime = root.getNode("night_transition_time").getInt();
         float requiredPercentSleeping = root.getNode("required_percent_sleeping").getFloat();
-        String wakeupMessage = root.getNode("messages", "wakeup").getString();
-        String enterBedMessage = root.getNode("messages", "enter_bed").getString();
-        String exitBedMessage = root.getNode("messages", "exit_bed").getString();
+
+        HashMap<String, String> strings = new HashMap<>();
+        strings.put("wakeup_message", root.getNode("messages", "wakeup").getString());
+        strings.put("enter_bed_message", root.getNode("messages", "enter_bed").getString());
+        strings.put("exit_bed_message", root.getNode("messages", "exit_bed").getString());
 
         // Hard-coded defaults in case these values are invalid or missing
-
-        if (nightTransitionTime < 0) {
-            nightTransitionTime = 300;
-            logger.info("Invalid or missing night_transition_time value. Using default of 300");
-        }
 
         if (requiredPercentSleeping <= 0.0f || requiredPercentSleeping > 1.0f) {
             requiredPercentSleeping = 0.5f;
             logger.info("Invalid or missing required_percent_sleeping value. Using default of 0.5");
         }
 
-        if (wakeupMessage == null) {
-            wakeupMessage = "Wakey wakey, rise and shine!";
-            logger.info("Missing messages.wakeup string. Using default of \"" + wakeupMessage + "\"");
+        if (strings.get("wakeup_message") == null) {
+            strings.put("wakeup_message", "Wakey wakey, rise and shine!");
+            logger.info("Missing messages.wakeup string. Using default of \"" + strings.get("wakeup_message") + "\"");
         }
 
-        if (enterBedMessage == null) {
-            enterBedMessage = "<player> wants to sleep! <sleeping>/<active> (<percent>%)";
-            logger.info("Missing messages.enter_bed string. Using default of \"" + enterBedMessage + "\"");
+        if (strings.get("enter_bed_message") == null) {
+            strings.put("enter_bed_message", "<player> wants to sleep! <sleeping>/<active> (<percent>%)");
+            logger.info("Missing messages.enter_bed string. Using default of \"" + strings.get("enter_bed_message") + "\"");
         }
 
-        if (exitBedMessage == null) {
-            exitBedMessage = "<player> has left their bed. <sleeping>/<active> (<percent>%)";
-            logger.info("Missing messages.exit_bed string. Using default of \"" + exitBedMessage + "\"");
+        if (strings.get("exit_bed_message") == null) {
+            strings.put("exit_bed_message", "<player> has left their bed. <sleeping>/<active> (<percent>%)");
+            logger.info("Missing messages.exit_bed string. Using default of \"" + strings.get("exit_bed_message") + "\"");
         }
 
         // Create the class that manages all the main functionality of SleepVote
 
-        sleepVoteManager = new SleepVoteManager(this,
-                enablePrefix, messageLogging, ignoreAFKPlayers, nightTransitionTime,
-                requiredPercentSleeping, wakeupMessage, enterBedMessage, exitBedMessage);
+        sleepVoteManager = new SleepVoteManager(this, requiredPercentSleeping, strings);
+
+        if (enablePrefix) {
+            sleepVoteManager.enableMessagePrefix();
+        }
+
+        if (messageLogging) {
+            sleepVoteManager.enableMessageLogging();
+        }
+
+        if (ignoreAFKPlayers) {
+            sleepVoteManager.ignoreAfkPlayers();
+        }
+
         Sponge.getEventManager().registerListeners(this, sleepVoteManager);
     }
 
-    private void loadHideMeData() {
-        Path hideMeDataPath = configurationDirectory.resolve(HIDEME_DATA_CONFIG_NAME);
-        ConfigurationLoader<CommentedConfigurationNode> hideMeConfigurationLoader = HoconConfigurationLoader.builder().setPath(hideMeDataPath).build();
-        Set<UUID> hiddenPlayers = null;
-
-        try {
-            ConfigurationNode rt = hideMeConfigurationLoader.load();
-            ConfigurationNode node = rt.getNode("ignored_players");
-            hiddenPlayers = rt.getNode("ignored_players").getValue(new TypeToken<HashSet<UUID>>() {});
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        if (hiddenPlayers == null) {
-            hiddenPlayers = new HashSet<>();
-        }
-
-        sleepVoteManager.addUuidsToHiddenPlayersSet(hiddenPlayers);
-    }
-
     private void initializeCommands() {
+
+        // Permission Descriptions
+
+        Sponge.getServiceManager().provide(PermissionService.class).ifPresent(permissionService -> {
+            Optional<PermissionDescription.Builder> optBuilder;
+
+            optBuilder = permissionService.newDescriptionBuilder(this);
+            if (optBuilder.isPresent()) {
+                PermissionDescription.Builder builder = optBuilder.get();
+                builder.id("sleepvote.hidden")
+                        .description(Text.of("A user with this permission will be hidden from SleepVote."))
+                        .assign(PermissionDescription.ROLE_ADMIN, true)
+                        .register();
+            }
+
+            optBuilder = permissionService.newDescriptionBuilder(this);
+            if (optBuilder.isPresent()) {
+                PermissionDescription.Builder builder = optBuilder.get();
+                builder.id("sleepvote.mute")
+                        .description(Text.of("A user with this permission will not have sounds played to them by SleepVote."))
+                        .assign(PermissionDescription.ROLE_ADMIN, true)
+                        .register();
+            }
+
+            optBuilder = permissionService.newDescriptionBuilder(this);
+            if (optBuilder.isPresent()) {
+                PermissionDescription.Builder builder = optBuilder.get();
+                builder.id("sleepvote.command.reload")
+                        .description(Text.of("Allows the user to reload the plugin."))
+                        .assign(PermissionDescription.ROLE_ADMIN, true)
+                        .register();
+            }
+
+            optBuilder = permissionService.newDescriptionBuilder(this);
+            if (optBuilder.isPresent()) {
+                PermissionDescription.Builder builder = optBuilder.get();
+                builder.id("sleepvote.command.hide")
+                        .description(Text.of("Allows the user to hide themself from SleepVote."))
+                        .assign(PermissionDescription.ROLE_ADMIN, true)
+                        .register();
+            }
+
+            optBuilder = permissionService.newDescriptionBuilder(this);
+            if (optBuilder.isPresent()) {
+                PermissionDescription.Builder builder = optBuilder.get();
+                builder.id("sleepvote.command.mute")
+                        .description(Text.of("Allows the user to mute the sounds played to them by SleepVote"))
+                        .assign(PermissionDescription.ROLE_USER, true)
+                        .register();
+            }
+
+            optBuilder = permissionService.newDescriptionBuilder(this);
+            if (optBuilder.isPresent()) {
+                PermissionDescription.Builder builder = optBuilder.get();
+                builder.id("sleepvote.command")
+                        .description(Text.of("Allows the user to execute the sleepvote command."))
+                        .assign(PermissionDescription.ROLE_USER, true)
+                        .register();
+            }
+        });
+
+        // Command implementations
+
         CommandSpec reloadCommand = CommandSpec.builder()
                 .description(Text.of("Reload configuration"))
                 .permission("sleepvote.command.reload")
@@ -168,23 +216,49 @@ public class SleepVote {
                 })
                 .build();
 
-        CommandSpec hideMeCommand = CommandSpec.builder()
-                .description(Text.of("Toggles whether you are hidden from SleepVote"))
-                .permission("sleepvote.command.hideme")
+        CommandSpec hideCommand = CommandSpec.builder()
+                .description(Text.of("Hide yourself from SleepVote"))
+                .permission("sleepvote.command.hide")
                 .executor((src, args) -> {
-                    if (src instanceof Player) {
-                        Player player = (Player) src;
-                        if (sleepVoteManager.isPlayerHidden(player)) {
-                            sleepVoteManager.unhidePlayer(player);
-                            src.sendMessage(messenger.addPrefix(Text.of("You are now visible to SleepVote.")));
-                        } else {
-                            sleepVoteManager.hidePlayer(player);
-                            src.sendMessage(messenger.addPrefix(Text.of("You have been hidden from SleepVote.")));
-                        }
+
+                    if (!(src instanceof Player)) {
+                        src.sendMessage(messenger.addPrefix(Text.of("Only a player may execute this command.")));
+                        return CommandResult.success();
+                    }
+
+                    SubjectData subject = src.getSubjectData();
+                    if (src.hasPermission("sleepvote.hidden")) {
+                        subject.setPermission(new HashSet<>(), "sleepvote.hidden", Tristate.FALSE);
+                        src.sendMessage(messenger.addPrefix(Text.of("You are no longer hidden from SleepVote")));
                     } else {
-                        src.sendMessage(messenger.addPrefix(Text.of("This command can only be executed by a player.")));
+                        subject.setPermission(new HashSet<>(), "sleepvote.hidden", Tristate.TRUE);
+                        src.sendMessage(messenger.addPrefix(Text.of("You are now hidden from SleepVote")));
                     }
                     return CommandResult.success();
+
+                })
+                .build();
+
+        CommandSpec muteCommand = CommandSpec.builder()
+                .description(Text.of("Stop SleepVote from playing sounds to you"))
+                .permission("sleepvote.command.mute")
+                .executor((src, args) -> {
+
+                    if (!(src instanceof Player)) {
+                        src.sendMessage(messenger.addPrefix(Text.of("Only a player may execute this command.")));
+                        return CommandResult.success();
+                    }
+
+                    SubjectData subject = src.getSubjectData();
+                    if (src.hasPermission("sleepvote.mute")) {
+                        subject.setPermission(new HashSet<>(), "sleepvote.mute", Tristate.FALSE);
+                        src.sendMessage(messenger.addPrefix(Text.of("SleepVote will now play sounds to you.")));
+                    } else {
+                        subject.setPermission(new HashSet<>(), "sleepvote.mute", Tristate.TRUE);
+                        src.sendMessage(messenger.addPrefix(Text.of("SleepVote will no longer play sounds to you.")));
+                    }
+                    return CommandResult.success();
+
                 })
                 .build();
 
@@ -192,7 +266,8 @@ public class SleepVote {
                 .description(Text.of("The one command for all of SleepVote"))
                 .permission("sleepvote.command")
                 .child(reloadCommand, "reload", "r")
-                .child(hideMeCommand, "hideme")
+                .child(hideCommand, "hide", "h")
+                .child(muteCommand, "mute", "m")
                 .build();
 
         Sponge.getCommandManager().register(this, sleepvoteCommand, "sleepvote", "sv");
@@ -207,42 +282,13 @@ public class SleepVote {
         sleepVoteManager.unregisterListeners();
         Sponge.getEventManager().unregisterListeners(sleepVoteManager);
         loadConfiguration();
-        loadHideMeData();
     }
 
-    @Listener
-    public void onGameStoppingServerEvent(GameStoppingServerEvent event) {
-        saveHideMeData();
-    }
-
-    private void saveHideMeData() {
-        Set<UUID> uuids = sleepVoteManager.getImmutableHiddenPlayers();
-        uuids.removeIf(uuid -> {
-            Optional<UserStorageService> userStorage = Sponge.getServiceManager().provide(UserStorageService.class);
-            Optional<User> user = userStorage.get().get(uuid);
-
-            return !(user.isPresent() && user.get().hasPermission("sleepvote.command.hideme.persist"));
-        });
-
-        Path configurationFilePath = configurationDirectory.resolve(HIDEME_DATA_CONFIG_NAME);
-        ConfigurationLoader<CommentedConfigurationNode> configurationLoader = HoconConfigurationLoader.builder().setPath(configurationFilePath).build();
-        try {
-            ConfigurationNode rootNode = configurationLoader.load();
-            rootNode.getNode("ignored_players").setValue(new TypeToken<Set<UUID>>() {}, uuids);
-            configurationLoader.save(rootNode);
-            logger.info("Successfully saved hideme data.");
-        } catch (Exception e) {
-            logger.error("Failed to save hideme data!");
-            e.printStackTrace();
-            return;
-        }
-    }
-
-    public Logger getLogger() {
+    Logger getLogger() {
         return logger;
     }
 
-    public Messenger getMessenger() {
+    Messenger getMessenger() {
         return messenger;
     }
 }
