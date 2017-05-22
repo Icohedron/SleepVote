@@ -1,13 +1,46 @@
 # Sleep Vote
 When a set percentage of players are sleeping in a given world, the night will be skipped and the time will be set to morning.
-
-This should work independently for each world. (i.e. a sleep vote in one world will not change/affect the time in another)
+This works independently for each world. (i.e. a sleep vote in one world will not change/affect the time in another).
+Comes with configurable messages, toggleable sounds, and an ability to hide yourself from the plugin to not disturb the sleep of others.
 
 ## Commands
 ```
-# Reloads the configuration file
-# Permission: sleepvote.command.reload
+# The one command for the entire plugin
+# Corresponding Permission: sleepvote.command
+/sleepvote
+
+# Allows the user to reload the plugin.
+# Corresponding Permission: sleepvote.command.reload
 /sleepvote reload
+
+# Allows the user to hide themself from SleepVote.
+# Corresponding Permission: sleepvote.command.hide
+/sleepvote hide
+
+# Allows the user to mute the sounds played to them by SleepVote
+# Corresponding Permission: sleepvote.command.mute
+/sleepvote mute
+```
+
+## Permissions
+```
+# Gives permissions to everything in the plugin
+sleepvote
+
+# Gives permission to execute all commands
+sleepvote.command
+
+# Gives permission to use the 'hide' command
+sleepvote.command.hide
+
+# Gives permission to use the 'mute' command
+sleepvote.command.mute
+
+# Users with this permission are ignored by the plugin when counting and calculating sleeping players
+sleepvote.hidden
+
+# Users with this permission will not have sounds played to them by the plugin
+sleepvote.mute
 ```
 
 ## Screenshots
@@ -38,6 +71,12 @@ This should work independently for each world. (i.e. a sleep vote in one world w
 
 # Toggle on/off the logging of the above messages (wakeup, enter_bed, exit_bed) in the server console
 "enable_logging" = true
+
+#### Nucleus Integration ####
+# The following options require Nucleus in order to work
+
+# Recommended: remove nucleus.afk.base (permission for access to the '/afk' command) from players so that they don't abuse this feature
+"ignore_afk_players" = false
 ```
 
 ## Links
