@@ -33,7 +33,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-@Plugin(id = "sleepvote", name = "SleepVote", version = "0.5.0",
+@Plugin(id = "sleepvote", name = "SleepVote", version = "0.5.1",
         dependencies = @Dependency(id = "nucleus", optional = true))
 public class SleepVote {
 
@@ -50,7 +50,6 @@ public class SleepVote {
 
     @Listener
     public void onInitializationEvent(GameInitializationEvent event) {
-        messenger = new Messenger();
         loadConfiguration();
         initializeCommands();
         hideCooldown = new HashSet<>();
@@ -100,10 +99,11 @@ public class SleepVote {
         }
 
         ConfigurationNode root = rootNode.get();
+        messenger = new Messenger(root.getNode("sound").getBoolean());
+
         boolean enablePrefix = root.getNode("sleepvote_prefix").getBoolean();
         boolean messageLogging = root.getNode("enable_logging").getBoolean();
         boolean ignoreAFKPlayers = root.getNode("ignore_afk_players").getBoolean();
-        boolean playSounds = root.getNode("sound").getBoolean();
         float requiredPercentSleeping = root.getNode("required_percent_sleeping").getFloat();
 
         HashMap<String, String> strings = new HashMap<>();
@@ -119,7 +119,7 @@ public class SleepVote {
 
         // Hard-coded defaults in case these values are invalid or missing
 
-        if (requiredPercentSleeping <= 0.0f || requiredPercentSleeping > 1.0f) {
+        if (requiredPercentSleeping < 0.0f || requiredPercentSleeping > 1.0f) {
             requiredPercentSleeping = 0.5f;
             logger.info("Invalid or missing required_percent_sleeping value. Using default of 0.5");
         }
@@ -141,7 +141,7 @@ public class SleepVote {
 
         // Create the class that manages all the main functionality of SleepVote
 
-        sleepVoteManager = new SleepVoteManager(this, requiredPercentSleeping, strings, ignoredGameModes, playSounds);
+        sleepVoteManager = new SleepVoteManager(this, requiredPercentSleeping, strings, ignoredGameModes);
 
         if (enablePrefix) {
             sleepVoteManager.enableMessagePrefix();

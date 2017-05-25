@@ -8,6 +8,12 @@ import org.spongepowered.api.world.World;
 
 class Messenger {
 
+    private boolean playSound;
+
+    Messenger(boolean playSound) {
+        this.playSound = playSound;
+    }
+
     Text parseMessage(String message, int numSleeping, int requiredSleeping, String playerName, boolean prefix) {
         int percent = 0;
         if (requiredSleeping > 0) {
@@ -31,6 +37,9 @@ class Messenger {
     }
 
     void playWorldSound(World world, SoundType sound) {
+        if (!playSound) {
+            return;
+        }
         for (Player p : world.getPlayers()) {
             if (!p.hasPermission("sleepvote.mute")) {
                 p.playSound(sound, p.getLocation().getPosition(), 1);

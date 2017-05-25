@@ -34,7 +34,6 @@ public class SleepVoteManager {
 
     private boolean enablePrefix;
     private boolean messageLogging;
-    private boolean playSounds;
 
     private float requiredPercentSleeping;
     private HashMap<String, String> strings; // Available strings: "wakeup_message", "enter_bed_message", "exit_bed_message"
@@ -43,12 +42,11 @@ public class SleepVoteManager {
 
     private AFKManager afkManager;
 
-    SleepVoteManager(SleepVote sleepVote, float requiredPercentSleeping, HashMap<String, String> strings, boolean[] ignoredGameModes, boolean playSounds) {
+    SleepVoteManager(SleepVote sleepVote, float requiredPercentSleeping, HashMap<String, String> strings, boolean[] ignoredGameModes) {
         this.sleepVote = sleepVote;
         this.requiredPercentSleeping = requiredPercentSleeping;
         this.strings = strings;
         this.ignoredGameModes = ignoredGameModes;
-        this.playSounds = playSounds;
 
         logger = sleepVote.getLogger();
         messenger = sleepVote.getMessenger();
@@ -64,8 +62,8 @@ public class SleepVoteManager {
             playerSleepRequests.get(player).cancel();
         }
 
-        if (player.hasPermission("sleepvote.hidden") || isInIgnoredGameMode(player)) {
-            return; // This player is ignored.
+        if (isIgnored(player)) {
+            return;
         }
 
         playerSleepRequests.put(player, Task.builder().execute(() -> {
@@ -83,9 +81,7 @@ public class SleepVoteManager {
                         player.getName(),
                         enablePrefix);
                 messenger.sendWorldMessage(world, text);
-                if (playSounds) {
-                    messenger.playWorldSound(world, SoundTypes.BLOCK_NOTE_HAT);
-                }
+                messenger.playWorldSound(world, SoundTypes.BLOCK_NOTE_HAT);
 
                 if (messageLogging) {
                     logger.info("[" + world.getName() + "] " + text.toPlain());
@@ -95,53 +91,50 @@ public class SleepVoteManager {
     }
 
     @Listener
-    public void onSleepTickEvent(SleepingEvent.Tick event) {
-        for (World world : sleeping.keySet()) {
-            Set<Player> sleepingPlayers = sleeping.get(world);
-            int numSleeping = sleepingPlayers.size();
-            int required = getRequiredPlayerCount(world);
-            WorldProperties worldProperties = world.getProperties();
+    public void onSleepTickEvent(SleepingEvent.Tick event, @First Player player) {
+        World world = player.getWorld();
+        sleeping.computeIfAbsent(world, w -> new HashSet<>());
+        Set<Player> sleepingPlayers = sleeping.get(world);
 
-            if (numSleeping == 0) {
-                continue;
-            }
+        int numSleeping = sleepingPlayers.size();
+        int required = getRequiredPlayerCount(world);
 
-            if (numSleeping >= required) {
-                worldProperties.setWorldTime(((int) Math.ceil(worldProperties.getWorldTime() / 24000.0f)) * 24000); // Set time to the next multiple 24000 ticks (equivalent to '/time set 0')
-                worldProperties.setRaining(false);
-                worldProperties.setThundering(false);
-                Text text = messenger.parseMessage(strings.get("wakeup_message"),
-                        0, 0, "", enablePrefix);
-                messenger.sendWorldMessage(world, text);
-                if (playSounds) {
-                    messenger.playWorldSound(world, SoundTypes.ENTITY_PLAYER_LEVELUP);
-                }
-                if (messageLogging) {
-                    logger.info("[" + world.getName() + "] " + text.toPlain());
-                }
-                sleepingPlayers.clear();
+        WorldProperties worldProperties = world.getProperties();
+
+        if (numSleeping >= required) {
+            worldProperties.setWorldTime(((int) Math.ceil(worldProperties.getWorldTime() / 24000.0f)) * 24000); // Set time to the next multiple 24000 ticks (equivalent to '/time set 0')
+            worldProperties.setRaining(false);
+            worldProperties.setThundering(false);
+
+            Text text = messenger.parseMessage(strings.get("wakeup_message"),
+                    0, 0, "", enablePrefix);
+            messenger.sendWorldMessage(world, text);
+            messenger.playWorldSound(world, SoundTypes.ENTITY_PLAYER_LEVELUP);
+
+            if (messageLogging) {
+                logger.info("[" + world.getName() + "] " + text.toPlain());
             }
+            sleepingPlayers.clear();
         }
     }
 
     @Listener
     public void onPostSleepingEvent(SleepingEvent.Post event, @First Player player) {
+        player.setSleepingIgnored(false);
+
         World world = player.getWorld();
         sleeping.computeIfAbsent(world, w -> new HashSet<>());
 
-        player.setSleepingIgnored(false);
-
         Set<Player> sleepingPlayers = sleeping.get(world);
         if (sleepingPlayers.remove(player)) {
+
             Text text = messenger.parseMessage(strings.get("exit_bed_message"),
                     sleepingPlayers.size(),
                     getRequiredPlayerCount(world),
                     player.getName(),
                     enablePrefix);
             messenger.sendWorldMessage(world, text);
-            if (playSounds) {
-                messenger.playWorldSound(world, SoundTypes.BLOCK_NOTE_HAT);
-            }
+            messenger.playWorldSound(world, SoundTypes.BLOCK_NOTE_HAT);
 
             if (messageLogging) {
                 logger.info("[" + world.getName() + "] " + text.toPlain());
@@ -163,6 +156,10 @@ public class SleepVoteManager {
         return true;
     }
 
+    private boolean isIgnored(Player player) {
+        return player.hasPermission("sleepvote.hidden") || isInIgnoredGameMode(player);
+    }
+
     boolean isInBed(Player player) {
         // Doesn't work due to bug: https://forums.spongepowered.org/t/warnings-on-startup-skipping-keys/18338
 //        return player.get(Keys.IS_SLEEPING).filter(k -> k.booleanValue()).isPresent();
@@ -179,8 +176,9 @@ public class SleepVoteManager {
         if (afkManager != null) {
             players.removeAll(afkManager.getAfkPlayerSet());
         }
-        players.removeIf(p -> p.hasPermission("sleepvote.hidden") || isInIgnoredGameMode(p));
-        return (int) (players.size() * requiredPercentSleeping);
+        players.removeIf(this::isIgnored);
+        int required = (int) (players.size() * requiredPercentSleeping);
+        return required < 1 ? 1 : required;
     }
 
     void unregisterListeners() {
