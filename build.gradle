@@ -3,10 +3,18 @@ plugins {
 }
 
 group 'io.github.icohedron.sleepvote'
-version = '0.4.2'
+version = '0.5.0'
 
 description = 'Vote to advance through the night by sleeping in a bed'
 
+repositories {
+    maven {
+        name = 'nucleus-api'
+        url = 'http://repo.drnaylor.co.uk/artifactory/list/minecraft'
+    }
+}
+
 dependencies {
     compile 'org.spongepowered:spongeapi:5.1.0'
+    compile 'io.github.nucleuspowered:nucleus-api:0.27.1-S5.1'
 }
