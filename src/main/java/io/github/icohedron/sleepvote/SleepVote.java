@@ -8,6 +8,7 @@ import ninja.leaping.configurate.loader.ConfigurationLoader;
 import org.slf4j.Logger;
 import org.spongepowered.api.Sponge;
 import org.spongepowered.api.command.CommandResult;
+import org.spongepowered.api.command.CommandSource;
 import org.spongepowered.api.command.spec.CommandSpec;
 import org.spongepowered.api.config.ConfigDir;
 import org.spongepowered.api.entity.living.player.Player;
@@ -16,6 +17,7 @@ import org.spongepowered.api.event.game.GameReloadEvent;
 import org.spongepowered.api.event.game.state.GameInitializationEvent;
 import org.spongepowered.api.plugin.Dependency;
 import org.spongepowered.api.plugin.Plugin;
+import org.spongepowered.api.scheduler.Task;
 import org.spongepowered.api.service.permission.PermissionDescription;
 import org.spongepowered.api.service.permission.PermissionService;
 import org.spongepowered.api.service.permission.SubjectData;
@@ -28,9 +30,11 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 @Plugin(id = "sleepvote", name = "SleepVote", version = "0.5.0",
-        dependencies = @Dependency(id = "nucleus", version = "0.21.0-S5.1", optional = true))
+        dependencies = @Dependency(id = "nucleus", optional = true))
 public class SleepVote {
 
     private static final String SETTINGS_CONFIG_NAME = "settings.conf";
@@ -41,11 +45,16 @@ public class SleepVote {
     private Messenger messenger;
     private SleepVoteManager sleepVoteManager;
 
+    private Set<CommandSource> hideCooldown;
+    private Set<CommandSource> muteCooldown;
+
     @Listener
     public void onInitializationEvent(GameInitializationEvent event) {
         messenger = new Messenger();
         loadConfiguration();
         initializeCommands();
+        hideCooldown = new HashSet<>();
+        muteCooldown = new HashSet<>();
         logger.info("Finished initialization");
         Sponge.getServiceManager().provide(PermissionService.class);
     }
@@ -94,12 +103,19 @@ public class SleepVote {
         boolean enablePrefix = root.getNode("sleepvote_prefix").getBoolean();
         boolean messageLogging = root.getNode("enable_logging").getBoolean();
         boolean ignoreAFKPlayers = root.getNode("ignore_afk_players").getBoolean();
+        boolean playSounds = root.getNode("sound").getBoolean();
         float requiredPercentSleeping = root.getNode("required_percent_sleeping").getFloat();
 
         HashMap<String, String> strings = new HashMap<>();
         strings.put("wakeup_message", root.getNode("messages", "wakeup").getString());
         strings.put("enter_bed_message", root.getNode("messages", "enter_bed").getString());
         strings.put("exit_bed_message", root.getNode("messages", "exit_bed").getString());
+
+        boolean[] ignoredGameModes = new boolean[4];
+        ignoredGameModes[0] = root.getNode("ignored_gamemodes", "survival").getBoolean();
+        ignoredGameModes[1] = root.getNode("ignored_gamemodes", "creative").getBoolean();
+        ignoredGameModes[2] = root.getNode("ignored_gamemodes", "adventure").getBoolean();
+        ignoredGameModes[3] = root.getNode("ignored_gamemodes", "spectator").getBoolean();
 
         // Hard-coded defaults in case these values are invalid or missing
 
@@ -125,7 +141,7 @@ public class SleepVote {
 
         // Create the class that manages all the main functionality of SleepVote
 
-        sleepVoteManager = new SleepVoteManager(this, requiredPercentSleeping, strings);
+        sleepVoteManager = new SleepVoteManager(this, requiredPercentSleeping, strings, ignoredGameModes, playSounds);
 
         if (enablePrefix) {
             sleepVoteManager.enableMessagePrefix();
@@ -153,7 +169,7 @@ public class SleepVote {
             if (optBuilder.isPresent()) {
                 PermissionDescription.Builder builder = optBuilder.get();
                 builder.id("sleepvote.hidden")
-                        .description(Text.of("A user with this permission will be hidden from SleepVote."))
+                        .description(Text.of("A user with this permission will be hidden from SleepVote"))
                         .assign(PermissionDescription.ROLE_ADMIN, true)
                         .register();
             }
@@ -162,7 +178,7 @@ public class SleepVote {
             if (optBuilder.isPresent()) {
                 PermissionDescription.Builder builder = optBuilder.get();
                 builder.id("sleepvote.mute")
-                        .description(Text.of("A user with this permission will not have sounds played to them by SleepVote."))
+                        .description(Text.of("A user with this permission will not have sounds played to them by SleepVote"))
                         .assign(PermissionDescription.ROLE_ADMIN, true)
                         .register();
             }
@@ -171,7 +187,7 @@ public class SleepVote {
             if (optBuilder.isPresent()) {
                 PermissionDescription.Builder builder = optBuilder.get();
                 builder.id("sleepvote.command.reload")
-                        .description(Text.of("Allows the user to reload the plugin."))
+                        .description(Text.of("Allows the user to reload the plugin"))
                         .assign(PermissionDescription.ROLE_ADMIN, true)
                         .register();
             }
@@ -180,7 +196,7 @@ public class SleepVote {
             if (optBuilder.isPresent()) {
                 PermissionDescription.Builder builder = optBuilder.get();
                 builder.id("sleepvote.command.hide")
-                        .description(Text.of("Allows the user to hide themself from SleepVote."))
+                        .description(Text.of("Allows the user to hide themself from SleepVote"))
                         .assign(PermissionDescription.ROLE_ADMIN, true)
                         .register();
             }
@@ -198,7 +214,7 @@ public class SleepVote {
             if (optBuilder.isPresent()) {
                 PermissionDescription.Builder builder = optBuilder.get();
                 builder.id("sleepvote.command")
-                        .description(Text.of("Allows the user to execute the sleepvote command."))
+                        .description(Text.of("Allows the user to execute the sleepvote command"))
                         .assign(PermissionDescription.ROLE_USER, true)
                         .register();
             }
@@ -222,18 +238,37 @@ public class SleepVote {
                 .executor((src, args) -> {
 
                     if (!(src instanceof Player)) {
-                        src.sendMessage(messenger.addPrefix(Text.of("Only a player may execute this command.")));
-                        return CommandResult.success();
+                        src.sendMessage(messenger.addPrefix(Text.of("Only a player may execute this command")));
+                        return CommandResult.empty();
                     }
+
+                    if (hideCooldown.contains(src)) {
+                        src.sendMessage(messenger.addPrefix(Text.of("Please wait before trying the command again")));
+                        return CommandResult.empty();
+                    }
+
+                    Text fail = messenger.addPrefix(Text.of("An error has occured"));
 
                     SubjectData subject = src.getSubjectData();
                     if (src.hasPermission("sleepvote.hidden")) {
-                        subject.setPermission(new HashSet<>(), "sleepvote.hidden", Tristate.FALSE);
-                        src.sendMessage(messenger.addPrefix(Text.of("You are no longer hidden from SleepVote")));
+                        if (subject.setPermission(new HashSet<>(), "sleepvote.hidden", Tristate.FALSE)) {
+                            src.sendMessage(messenger.addPrefix(Text.of("You are no longer hidden from SleepVote")));
+                        } else {
+                            src.sendMessage(fail);
+                            return CommandResult.empty();
+                        }
                     } else {
-                        subject.setPermission(new HashSet<>(), "sleepvote.hidden", Tristate.TRUE);
-                        src.sendMessage(messenger.addPrefix(Text.of("You are now hidden from SleepVote")));
+                        if (subject.setPermission(new HashSet<>(), "sleepvote.hidden", Tristate.TRUE)) {
+                            src.sendMessage(messenger.addPrefix(Text.of("You are now hidden from SleepVote")));
+                        } else {
+                            src.sendMessage(fail);
+                            return CommandResult.empty();
+                        }
                     }
+
+                    hideCooldown.add(src); // Cooldown required due to results from testing
+                    Task.builder().execute(() -> hideCooldown.remove(src)).async().delay(3, TimeUnit.SECONDS).submit(this);
+
                     return CommandResult.success();
 
                 })
@@ -245,18 +280,37 @@ public class SleepVote {
                 .executor((src, args) -> {
 
                     if (!(src instanceof Player)) {
-                        src.sendMessage(messenger.addPrefix(Text.of("Only a player may execute this command.")));
-                        return CommandResult.success();
+                        src.sendMessage(messenger.addPrefix(Text.of("Only a player may execute this command")));
+                        return CommandResult.empty();
                     }
+
+                    if (muteCooldown.contains(src)) {
+                        src.sendMessage(messenger.addPrefix(Text.of("Please wait before trying the command again")));
+                        return CommandResult.empty();
+                    }
+
+                    Text fail = messenger.addPrefix(Text.of("An error has occured"));
 
                     SubjectData subject = src.getSubjectData();
                     if (src.hasPermission("sleepvote.mute")) {
-                        subject.setPermission(new HashSet<>(), "sleepvote.mute", Tristate.FALSE);
-                        src.sendMessage(messenger.addPrefix(Text.of("SleepVote will now play sounds to you.")));
+                        if (subject.setPermission(new HashSet<>(), "sleepvote.mute", Tristate.FALSE)) {
+                            src.sendMessage(messenger.addPrefix(Text.of("SleepVote will now play sounds to you")));
+                        } else {
+                            src.sendMessage(fail);
+                            return CommandResult.empty();
+                        }
                     } else {
-                        subject.setPermission(new HashSet<>(), "sleepvote.mute", Tristate.TRUE);
-                        src.sendMessage(messenger.addPrefix(Text.of("SleepVote will no longer play sounds to you.")));
+                        if (subject.setPermission(new HashSet<>(), "sleepvote.mute", Tristate.TRUE)) {
+                            src.sendMessage(messenger.addPrefix(Text.of("SleepVote will no longer play sounds to you")));
+                        } else {
+                            src.sendMessage(fail);
+                            return CommandResult.empty();
+                        }
                     }
+
+                    muteCooldown.add(src); // Cooldown required due to results from testing
+                    Task.builder().execute(() -> muteCooldown.remove(src)).async().delay(3, TimeUnit.SECONDS).submit(this);
+
                     return CommandResult.success();
 
                 })

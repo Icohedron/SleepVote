@@ -2,7 +2,11 @@ package io.github.icohedron.sleepvote;
 
 import org.slf4j.Logger;
 import org.spongepowered.api.Sponge;
+import org.spongepowered.api.data.key.Keys;
+import org.spongepowered.api.effect.sound.SoundTypes;
 import org.spongepowered.api.entity.living.player.Player;
+import org.spongepowered.api.entity.living.player.gamemode.GameMode;
+import org.spongepowered.api.entity.living.player.gamemode.GameModes;
 import org.spongepowered.api.event.Listener;
 import org.spongepowered.api.event.action.SleepingEvent;
 import org.spongepowered.api.event.filter.cause.First;
@@ -19,7 +23,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-class SleepVoteManager {
+public class SleepVoteManager {
 
     private SleepVote sleepVote;
     private Logger logger;
@@ -30,16 +34,21 @@ class SleepVoteManager {
 
     private boolean enablePrefix;
     private boolean messageLogging;
+    private boolean playSounds;
 
     private float requiredPercentSleeping;
     private HashMap<String, String> strings; // Available strings: "wakeup_message", "enter_bed_message", "exit_bed_message"
 
+    private boolean[] ignoredGameModes;
+
     private AFKManager afkManager;
 
-    SleepVoteManager(SleepVote sleepVote, float requiredPercentSleeping, HashMap<String, String> strings) {
+    SleepVoteManager(SleepVote sleepVote, float requiredPercentSleeping, HashMap<String, String> strings, boolean[] ignoredGameModes, boolean playSounds) {
         this.sleepVote = sleepVote;
         this.requiredPercentSleeping = requiredPercentSleeping;
         this.strings = strings;
+        this.ignoredGameModes = ignoredGameModes;
+        this.playSounds = playSounds;
 
         logger = sleepVote.getLogger();
         messenger = sleepVote.getMessenger();
@@ -55,7 +64,7 @@ class SleepVoteManager {
             playerSleepRequests.get(player).cancel();
         }
 
-        if (player.hasPermission("sleepvote.hidden")) {
+        if (player.hasPermission("sleepvote.hidden") || isInIgnoredGameMode(player)) {
             return; // This player is ignored.
         }
 
@@ -74,7 +83,9 @@ class SleepVoteManager {
                         player.getName(),
                         enablePrefix);
                 messenger.sendWorldMessage(world, text);
-                messenger.playWorldSound(world);
+                if (playSounds) {
+                    messenger.playWorldSound(world, SoundTypes.BLOCK_NOTE_HAT);
+                }
 
                 if (messageLogging) {
                     logger.info("[" + world.getName() + "] " + text.toPlain());
@@ -102,7 +113,9 @@ class SleepVoteManager {
                 Text text = messenger.parseMessage(strings.get("wakeup_message"),
                         0, 0, "", enablePrefix);
                 messenger.sendWorldMessage(world, text);
-                messenger.playWorldSound(world);
+                if (playSounds) {
+                    messenger.playWorldSound(world, SoundTypes.ENTITY_PLAYER_LEVELUP);
+                }
                 if (messageLogging) {
                     logger.info("[" + world.getName() + "] " + text.toPlain());
                 }
@@ -126,7 +139,9 @@ class SleepVoteManager {
                     player.getName(),
                     enablePrefix);
             messenger.sendWorldMessage(world, text);
-            messenger.playWorldSound(world);
+            if (playSounds) {
+                messenger.playWorldSound(world, SoundTypes.BLOCK_NOTE_HAT);
+            }
 
             if (messageLogging) {
                 logger.info("[" + world.getName() + "] " + text.toPlain());
@@ -134,6 +149,19 @@ class SleepVoteManager {
         }
     }
 
+    private boolean isInIgnoredGameMode(Player player) {
+
+        Optional<GameMode> optionalGameMode = player.getGameModeData().get(Keys.GAME_MODE);
+        if (optionalGameMode.isPresent()) {
+            GameMode gameMode = optionalGameMode.get();
+            return (gameMode.equals(GameModes.SURVIVAL) && ignoredGameModes[0]) ||
+                    (gameMode.equals(GameModes.CREATIVE) && ignoredGameModes[1]) ||
+                    (gameMode.equals(GameModes.ADVENTURE) && ignoredGameModes[2]) ||
+                    (gameMode.equals(GameModes.SPECTATOR) && ignoredGameModes[3]);
+        }
+
+        return true;
+    }
 
     boolean isInBed(Player player) {
         // Doesn't work due to bug: https://forums.spongepowered.org/t/warnings-on-startup-skipping-keys/18338
@@ -151,8 +179,8 @@ class SleepVoteManager {
         if (afkManager != null) {
             players.removeAll(afkManager.getAfkPlayerSet());
         }
-        players.removeIf(p -> p.hasPermission("sleepvote.hidden"));
-        return (int) Math.ceil(players.size() * requiredPercentSleeping);
+        players.removeIf(p -> p.hasPermission("sleepvote.hidden") || isInIgnoredGameMode(p));
+        return (int) (players.size() * requiredPercentSleeping);
     }
 
     void unregisterListeners() {
@@ -175,7 +203,7 @@ class SleepVoteManager {
             afkManager = new AFKManager(this);
             Sponge.getEventManager().registerListeners(sleepVote, afkManager);
         } else {
-            logger.warn("Nucleus not detected. Some requested functionality may be missing.");
+            logger.warn("Nucleus not detected. Some requested functionality may be missing");
         }
     }
 }

@@ -9,7 +9,7 @@ import org.spongepowered.api.event.network.ClientConnectionEvent;
 import java.util.HashSet;
 import java.util.Set;
 
-class AFKManager {
+public class AFKManager {
 
     private SleepVoteManager sleepVoteManager;
     private Set<Player> afkPlayers;

@@ -1,15 +1,12 @@
 package io.github.icohedron.sleepvote;
 
 import org.spongepowered.api.effect.sound.SoundType;
-import org.spongepowered.api.effect.sound.SoundTypes;
 import org.spongepowered.api.entity.living.player.Player;
 import org.spongepowered.api.text.Text;
 import org.spongepowered.api.text.format.TextColors;
 import org.spongepowered.api.world.World;
 
 class Messenger {
-
-    private SoundType sound = SoundTypes.BLOCK_NOTE_PLING;
 
     Text parseMessage(String message, int numSleeping, int requiredSleeping, String playerName, boolean prefix) {
         int percent = 0;
@@ -33,7 +30,7 @@ class Messenger {
         }
     }
 
-    void playWorldSound(World world) {
+    void playWorldSound(World world, SoundType sound) {
         for (Player p : world.getPlayers()) {
             if (!p.hasPermission("sleepvote.mute")) {
                 p.playSound(sound, p.getLocation().getPosition(), 1);
