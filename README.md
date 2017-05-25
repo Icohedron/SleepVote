@@ -93,6 +93,13 @@ sleepvote.mute
 "ignore_afk_players" = false
 ```
 
+## Build Instructions
+Just run the following in a terminal:
+```
+gradlew build
+```
+The plugin jar file will then appear in /build/libs
+
 ## Links
 [W.I.P. Plugins Sponge Forum Thread](https://forums.spongepowered.org/t/sleep-vote-v0-4-0/18289)
 
