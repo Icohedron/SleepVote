@@ -69,13 +69,27 @@ sleepvote.mute
 # Enable the "[SleepVote]" chat prefix on the wakeup, enter_bed, and exit_bed messages (e.g. "[SleepVote] Wakey wakey, rise and shine!" when true, and "Wakey wakey, rise and shine!" when false)
 "sleepvote_prefix" = true
 
-# Toggle on/off the logging of the above messages (wakeup, enter_bed, exit_bed) in the server console
+# Toggle on/off the logging of the wakeup, enter_bed, and exit_bed messages messages in the server console
 "enable_logging" = true
+
+# Toggle on/of the sounds that play on the wakeup, enter_bed, and exit_bed messages
+# Note that there is a command that allows players to mute the sounds for themselves: '/sleepvote mute' with the corresponding permission of 'sleepvote.command.mute'
+"sound" = true
+
+#### Counted Game Modes ####
+# Determine which game modes are ignored when counting up players
+# A value of 'true' means that players with that game mode will be ignored
+"ignored_gamemodes" {
+    "survival" = false
+    "creative" = false
+    "adventure" = false
+    "spectator" = true
+}
 
 #### Nucleus Integration ####
 # The following options require Nucleus in order to work
 
-# Recommended: remove nucleus.afk.base (permission for access to the '/afk' command) from players so that they don't abuse this feature
+# Recommended: remove the permission 'nucleus.afk.base' (access to the '/afk' command) from players so that this feature is not abused
 "ignore_afk_players" = false
 ```
 
