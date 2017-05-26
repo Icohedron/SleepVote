@@ -7,6 +7,7 @@ import ninja.leaping.configurate.hocon.HoconConfigurationLoader;
 import ninja.leaping.configurate.loader.ConfigurationLoader;
 import org.slf4j.Logger;
 import org.spongepowered.api.Sponge;
+import org.spongepowered.api.asset.Asset;
 import org.spongepowered.api.command.CommandResult;
 import org.spongepowered.api.command.CommandSource;
 import org.spongepowered.api.command.spec.CommandSpec;
@@ -33,7 +34,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-@Plugin(id = "sleepvote", name = "SleepVote", version = "0.5.1",
+@Plugin(id = "sleepvote", name = "SleepVote", version = "0.5.2",
         dependencies = @Dependency(id = "nucleus", optional = true))
 public class SleepVote {
 
