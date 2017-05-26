@@ -6,7 +6,7 @@ Comes with configurable messages, toggleable sounds, and an ability to hide your
 ***Quick note here: 
 Current versions are considered to be "beta". These releases aim to provide the latest features as they are being developed and tested.
 
-Eventually the versions will switch over to being "pre-releases" in which they will be deemed stable but may still contain a few bugs. At this point, it is very important for users to report any and all bugs they can find to the [Issue Tracker](https://ore.spongepowered.org/Icohedron/Sleep-Vote/issues)! This will help to ensure that the "release" version is the most stable as it can be!
+Eventually the versions will switch over to being "pre-releases" in which they will be deemed stable but may still contain a few bugs. At this point, it is *very important* for users to report any and all bugs they can find to the [Issue Tracker](https://ore.spongepowered.org/Icohedron/Sleep-Vote/issues)! This will help to ensure that the "release" version is the most stable as it can be!
 
 Only once thorough testing is complete and all features have been fleshed out is when the all-awaited "release" version will come out.
 
