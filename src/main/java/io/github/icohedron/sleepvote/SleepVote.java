@@ -34,8 +34,8 @@ public class SleepVote {
     @Inject @ConfigDir(sharedRoot = false) private Path configurationDirectory;
     @Inject private Logger logger;
 
-    private Messenger messenger;
     private SleepVoteManager sleepVoteManager;
+    private boolean unhideWarning;
 
     @Listener
     public void onInitializationEvent(GameInitializationEvent event) {
@@ -67,11 +67,11 @@ public class SleepVote {
                     Sponge.getAssetManager().getAsset(this, "default_" + SETTINGS_CONFIG_NAME).get().copyToFile(configurationFilePath);
                     logger.info("Finished! Configuration file saved to \"" + configurationFilePath.toString() + "\"");
                 } catch (IOException e) {
-                    logger.error("Failed to create configuration file! Aborting operation and falling back to default configuration.");
+                    logger.error("Failed to create configuration file! Aborting operation and falling back to default configuration");
                     e.printStackTrace();
                 }
             } else { // Otherwise, there was likely a parsing error.
-                logger.error("Failed to read configuration file! (Improper syntax?) Falling back to default configuration.");
+                logger.error("Failed to read configuration file! (Improper syntax?) Falling back to default configuration");
             }
 
             // In either case, just load the default configuration
@@ -79,14 +79,14 @@ public class SleepVote {
             try {
                 rootNode = Optional.of(settingsConfigurationLoader.load());
             } catch (IOException e) {
-                logger.error("Failed to fall back to default configuration! Shutting down plugin");
+                logger.error("Failed to load default configuration! Shutting down plugin");
                 System.exit(0);
             }
 
         }
 
         ConfigurationNode root = rootNode.get();
-        messenger = new Messenger(root.getNode("sound").getBoolean());
+        unhideWarning = root.getNode("unhide_warning").getBoolean();
         sleepVoteManager = new SleepVoteManager(this, root); // Manages the core functionality of the plugin
 
         Sponge.getEventManager().registerListeners(this, sleepVoteManager);
@@ -103,7 +103,7 @@ public class SleepVote {
             if (optBuilder.isPresent()) {
                 PermissionDescription.Builder builder = optBuilder.get();
                 builder.id("sleepvote.hidden")
-                        .description(Text.of("A user with this permission will be hidden from SleepVote"))
+                        .description(Text.of("A user with this permission will be hidden from SleepVote if enabled in the config"))
                         .assign(PermissionDescription.ROLE_ADMIN, true)
                         .register();
             }
@@ -138,6 +138,15 @@ public class SleepVote {
             optBuilder = permissionService.newDescriptionBuilder(this);
             if (optBuilder.isPresent()) {
                 PermissionDescription.Builder builder = optBuilder.get();
+                builder.id("sleepvote.command.status")
+                        .description(Text.of("Allows the user know about their current mute and hidden status"))
+                        .assign(PermissionDescription.ROLE_USER, true)
+                        .register();
+            }
+
+            optBuilder = permissionService.newDescriptionBuilder(this);
+            if (optBuilder.isPresent()) {
+                PermissionDescription.Builder builder = optBuilder.get();
                 builder.id("sleepvote.command")
                         .description(Text.of("Allows the user to execute the sleepvote command"))
                         .assign(PermissionDescription.ROLE_USER, true)
@@ -152,7 +161,7 @@ public class SleepVote {
                 .permission("sleepvote.command.reload")
                 .executor((src, args) -> {
                     reload();
-                    src.sendMessage(messenger.addPrefix(Text.of("Finished reloading configuration")));
+                    src.sendMessage(sleepVoteManager.getMessenger().addPrefix(Text.of("Finished reloading configuration")));
                     return CommandResult.success();
                 })
                 .build();
@@ -162,15 +171,28 @@ public class SleepVote {
                 .permission("sleepvote.command.hide")
                 .executor((src, args) -> {
                     if (!(src instanceof Player)) {
-                        src.sendMessage(messenger.addPrefix(Text.of("Only a player may execute this command")));
+                        src.sendMessage(sleepVoteManager.getMessenger().addPrefix(Text.of("Only a player may execute this command")));
                         return CommandResult.empty();
                     }
 
                     Player player = (Player) src;
                     if (sleepVoteManager.isInIgnoredSet(player)) {
                         sleepVoteManager.unignorePlayer(player);
+                        player.sendMessage(sleepVoteManager.getMessenger().addPrefix(Text.of("You are no longer hidden from SleepVote")));
+
+                        if (unhideWarning) {
+                            if (sleepVoteManager.isInIgnoredGameMode(player)) {
+                                player.sendMessage(sleepVoteManager.getMessenger().addPrefix(Text.of("Note: Although you have successfully been removed from the list of hidden players, you are still in an ignored gamemode. Players with certain gamemodes are ignored by SleepVote. Talk to your server operator for more details")));
+                            }
+
+                            if (sleepVoteManager.areAdminsIgnored() && player.hasPermission("sleepvote.hidden")) {
+                                player.sendMessage(sleepVoteManager.getMessenger().addPrefix(Text.of("Note: Although you have successfully been removed from the list of hidden players, you still have the permission 'sleepvote.hidden'. It has been detected that SleepVote is configured to always ignore players with this permission. Talk to your server operator for more details")));
+                            }
+                        }
+
                     } else {
                         sleepVoteManager.ignorePlayer(player);
+                        player.sendMessage(sleepVoteManager.getMessenger().addPrefix(Text.of("You are now hidden from SleepVote")));
                     }
 
                     return CommandResult.success();
@@ -183,16 +205,38 @@ public class SleepVote {
                 .permission("sleepvote.command.mute")
                 .executor((src, args) -> {
                     if (!(src instanceof Player)) {
-                        src.sendMessage(messenger.addPrefix(Text.of("Only a player may execute this command")));
+                        src.sendMessage(sleepVoteManager.getMessenger().addPrefix(Text.of("Only a player may execute this command")));
                         return CommandResult.empty();
                     }
 
                     Player player = (Player) src;
                     if (sleepVoteManager.isMute(player)) {
                         sleepVoteManager.unmutePlayer(player);
+                        player.sendMessage(sleepVoteManager.getMessenger().addPrefix(Text.of("SleepVote will now be able to play sounds to you")));
                     } else {
                         sleepVoteManager.mutePlayer(player);
+                        player.sendMessage(sleepVoteManager.getMessenger().addPrefix(Text.of("SleepVote will no longer play sounds to you")));
                     }
+
+                    return CommandResult.success();
+
+                })
+                .build();
+
+        CommandSpec statusCommand = CommandSpec.builder()
+                .description(Text.of("Tells you about your current mute and hidden status"))
+                .permission("sleepvote.command.status")
+                .executor((src, args) -> {
+                    if (!(src instanceof Player)) {
+                        src.sendMessage(sleepVoteManager.getMessenger().addPrefix(Text.of("Only a player may execute this command")));
+                        return CommandResult.empty();
+                    }
+
+                    Player player = (Player) src;
+                    boolean ignored = sleepVoteManager.isIgnored(player);
+                    boolean mute = sleepVoteManager.isMute(player);
+
+                    player.sendMessage(sleepVoteManager.getMessenger().addPrefix(Text.of("Ignored/Hidden: " + ignored + ", Mute Sounds: " + mute)));
 
                     return CommandResult.success();
 
@@ -205,6 +249,7 @@ public class SleepVote {
                 .child(reloadCommand, "reload", "r")
                 .child(hideCommand, "hide", "h")
                 .child(muteCommand, "mute", "m")
+                .child(statusCommand, "status", "s")
                 .build();
 
         Sponge.getCommandManager().register(this, sleepvoteCommand, "sleepvote", "sv");
@@ -223,9 +268,5 @@ public class SleepVote {
 
     Logger getLogger() {
         return logger;
-    }
-
-    Messenger getMessenger() {
-        return messenger;
     }
 }
