@@ -1,5 +1,6 @@
 package io.github.icohedron.sleepvote;
 
+import ninja.leaping.configurate.ConfigurationNode;
 import org.slf4j.Logger;
 import org.spongepowered.api.Sponge;
 import org.spongepowered.api.data.key.Keys;
@@ -31,27 +32,83 @@ public class SleepVoteManager {
 
     private Map<World, Set<Player>> sleeping;
     private Map<Player, Task> playerSleepRequests;
+    private Set<Player> mute;
+    private Set<Player> ignore;
 
     private boolean enablePrefix;
     private boolean messageLogging;
+    private boolean ignoreAdmins;
 
     private float requiredPercentSleeping;
+    private int requiredNumberSleeping;
     private HashMap<String, String> strings; // Available strings: "wakeup_message", "enter_bed_message", "exit_bed_message"
 
     private boolean[] ignoredGameModes;
 
     private AFKManager afkManager;
 
-    SleepVoteManager(SleepVote sleepVote, float requiredPercentSleeping, HashMap<String, String> strings, boolean[] ignoredGameModes) {
+    SleepVoteManager(SleepVote sleepVote, ConfigurationNode configNode) {
         this.sleepVote = sleepVote;
-        this.requiredPercentSleeping = requiredPercentSleeping;
-        this.strings = strings;
-        this.ignoredGameModes = ignoredGameModes;
+
+        // Configure according to the configuration file values
+
+        enablePrefix = configNode.getNode("sleepvote_prefix").getBoolean();
+        messageLogging = configNode.getNode("enable_logging").getBoolean();
+        ignoreAdmins = configNode.getNode("ignore_admins").getBoolean();
+        requiredPercentSleeping = configNode.getNode("required_percent_sleeping").getFloat();
+        requiredNumberSleeping = configNode.getNode("required_number_sleeping").getInt();
+
+        strings = new HashMap<>();
+        strings.put("wakeup_message", configNode.getNode("messages", "wakeup").getString());
+        strings.put("enter_bed_message", configNode.getNode("messages", "enter_bed").getString());
+        strings.put("exit_bed_message", configNode.getNode("messages", "exit_bed").getString());
+
+        ignoredGameModes = new boolean[4];
+        ignoredGameModes[0] = configNode.getNode("ignored_gamemodes", "survival").getBoolean();
+        ignoredGameModes[1] = configNode.getNode("ignored_gamemodes", "creative").getBoolean();
+        ignoredGameModes[2] = configNode.getNode("ignored_gamemodes", "adventure").getBoolean();
+        ignoredGameModes[3] = configNode.getNode("ignored_gamemodes", "spectator").getBoolean();
+
+        // Hard-coded defaults in case these values are invalid or missing
+
+        if (requiredPercentSleeping < 0.0f || requiredPercentSleeping > 1.0f) {
+            requiredPercentSleeping = 0.5f;
+            logger.info("\"required_percent_sleeping\": The value of '" + requiredPercentSleeping + "' is invalid, it must be in the inclusive range of [0.0, 1.0]. Using default of 0.5");
+        }
+
+        if (strings.get("wakeup_message") == null) {
+            strings.put("wakeup_message", "Wakey wakey, rise and shine!");
+            logger.info("Missing \"messages.wakeup\". Using default message \"" + strings.get("wakeup_message") + "\"");
+        }
+
+        if (strings.get("enter_bed_message") == null) {
+            strings.put("enter_bed_message", "<player> wants to sleep! <sleeping>/<active> (<percent>%)");
+            logger.info("Missing \"messages.enter_bed\". Using default message \"" + strings.get("enter_bed_message") + "\"");
+        }
+
+        if (strings.get("exit_bed_message") == null) {
+            strings.put("exit_bed_message", "<player> has left their bed. <sleeping>/<active> (<percent>%)");
+            logger.info("Missing \"messages.exit_bed\". Using default message \"" + strings.get("exit_bed_message") + "\"");
+        }
+
+        // Set up Nucleus Integration if functionality is requested
+
+        if (configNode.getNode("ignore_afk_players").getBoolean()) {
+            Optional<PluginContainer> nucleus = Sponge.getPluginManager().getPlugin("nucleus");
+            if (nucleus.isPresent()) {
+                afkManager = new AFKManager(this);
+                Sponge.getEventManager().registerListeners(sleepVote, afkManager);
+            } else {
+                logger.warn("Nucleus not detected. Some requested functionality may be missing");
+            }
+        }
 
         logger = sleepVote.getLogger();
         messenger = sleepVote.getMessenger();
         sleeping = new HashMap<>();
         playerSleepRequests = new HashMap<>();
+        mute = new HashSet<>();
+        ignore = new HashSet<>();
     }
 
     @Listener
@@ -143,7 +200,6 @@ public class SleepVoteManager {
     }
 
     private boolean isInIgnoredGameMode(Player player) {
-
         Optional<GameMode> optionalGameMode = player.getGameModeData().get(Keys.GAME_MODE);
         if (optionalGameMode.isPresent()) {
             GameMode gameMode = optionalGameMode.get();
@@ -152,12 +208,11 @@ public class SleepVoteManager {
                     (gameMode.equals(GameModes.ADVENTURE) && ignoredGameModes[2]) ||
                     (gameMode.equals(GameModes.SPECTATOR) && ignoredGameModes[3]);
         }
-
         return true;
     }
 
     private boolean isIgnored(Player player) {
-        return player.hasPermission("sleepvote.hidden") || isInIgnoredGameMode(player);
+        return (ignoreAdmins && player.hasPermission("sleepvote.hidden")) || isInIgnoredGameMode(player) || ignore.contains(player);
     }
 
     boolean isInBed(Player player) {
@@ -177,7 +232,16 @@ public class SleepVoteManager {
             players.removeAll(afkManager.getAfkPlayerSet());
         }
         players.removeIf(this::isIgnored);
-        int required = (int) (players.size() * requiredPercentSleeping);
+
+        int requiredFromPercent = (int) (players.size() * requiredPercentSleeping);
+
+        int required;
+        if (requiredNumberSleeping <= 0) {
+            required = requiredFromPercent;
+        } else {
+            required = Math.min(requiredFromPercent, requiredNumberSleeping);
+        }
+
         return required < 1 ? 1 : required;
     }
 
@@ -187,21 +251,27 @@ public class SleepVoteManager {
         }
     }
 
-    void enableMessagePrefix() {
-        enablePrefix = true;
+    void ignorePlayer(Player player) {
+        ignore.add(player);
     }
 
-    void enableMessageLogging() {
-        messageLogging = true;
+    void unignorePlayer(Player player) {
+        ignore.remove(player);
     }
 
-    void ignoreAfkPlayers() {
-        Optional<PluginContainer> nucleus = Sponge.getPluginManager().getPlugin("nucleus");
-        if (nucleus.isPresent()) {
-            afkManager = new AFKManager(this);
-            Sponge.getEventManager().registerListeners(sleepVote, afkManager);
-        } else {
-            logger.warn("Nucleus not detected. Some requested functionality may be missing");
-        }
+    boolean isInIgnoredSet(Player player) {
+        return ignore.contains(player);
+    }
+
+    void mutePlayer(Player player) {
+        mute.add(player);
+    }
+
+    void unmutePlayer(Player player) {
+        mute.remove(player);
+    }
+
+    boolean isMute(Player player) {
+        return  mute.contains(player);
     }
 }
