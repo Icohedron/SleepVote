@@ -111,6 +111,11 @@ gradlew build
 ```
 The plugin jar file will then appear in /build/libs
 
+## FAQ/Troubleshooting
+Q: I installed the plugin, but when I sleep, nothing happens!
+
+A: Players with the 'sleepvote.hidden' permission are ignored by the plugin. Try sleeping without op / unset the permission on your group/player using your permissions plugin. The command '/sleepvote hide' should also work, but give it a few seconds to kick in.
+
 ## Links
 [W.I.P. Plugins Sponge Forum Thread](https://forums.spongepowered.org/t/sleep-vote-v0-4-0/18289)
 

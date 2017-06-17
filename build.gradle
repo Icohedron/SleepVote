@@ -7,6 +7,9 @@ version = '0.5.2'
 
 description = 'Vote to advance through the night by sleeping in a bed'
 
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
 repositories {
     maven {
         name = 'nucleus-api'
