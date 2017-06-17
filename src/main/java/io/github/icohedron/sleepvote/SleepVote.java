@@ -25,7 +25,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
 
-@Plugin(id = "sleepvote", name = "SleepVote", version = "0.5.2",
+@Plugin(id = "sleepvote", name = "SleepVote", version = "0.6-BETA-1",
         dependencies = @Dependency(id = "nucleus", optional = true))
 public class SleepVote {
 
