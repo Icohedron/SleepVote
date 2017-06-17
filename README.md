@@ -6,7 +6,7 @@ Comes with configurable messages, toggleable sounds, and an ability to hide your
 ### Version Notice
 Current versions are considered to be "beta". These releases aim to provide the latest features as they are being developed and tested.
 
-Eventually the versions will lose the third decimal place and switch over to being "pre-releases" in which they will be deemed stable but may still contain a few bugs. The first prerelease will be aptly named "1.0-PRERELEASE-1"  
+Eventually the versions will switch over to being "pre-releases" in which they will be deemed stable but may still contain a few bugs. The first prerelease will be aptly named "1.0-PRERELEASE-1"  
 At this point, it is *very important* for users to report any and all bugs they can find to the [Issue Tracker](https://ore.spongepowered.org/Icohedron/Sleep-Vote/issues)! This will help to ensure that the "release" version is the most stable as it can be!
 
 Only once thorough testing is complete and all features have been fleshed out is when the all-awaited "release" version will come out (version "1.0").
