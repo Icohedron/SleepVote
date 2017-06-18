@@ -112,7 +112,7 @@ public class SleepVoteManager {
         }
 
         playerSleepRequests.put(uuid, Task.builder().execute(() -> {
-            if (isInBed(player)) {
+            if (isInBed(player) && !isIgnored(player)) {
 
                 World world = player.getWorld();
                 sleeping.computeIfAbsent(world, w -> new HashSet<>());
@@ -173,7 +173,6 @@ public class SleepVoteManager {
 
         Set<UUID> sleepingPlayers = sleeping.get(world);
         if (sleepingPlayers.remove(uuid)) {
-
             Text text = messenger.parseMessage(exitBedMessage,
                     sleepingPlayers.size(),
                     getRequiredPlayerCount(world),
