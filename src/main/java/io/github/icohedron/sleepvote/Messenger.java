@@ -8,9 +8,11 @@ import org.spongepowered.api.world.World;
 
 class Messenger {
 
+    private SleepVoteManager sleepVoteManager;
     private boolean playSound;
 
-    Messenger(boolean playSound) {
+    Messenger(SleepVoteManager sleepVoteManager, boolean playSound) {
+        this.sleepVoteManager = sleepVoteManager;
         this.playSound = playSound;
     }
 
@@ -41,7 +43,7 @@ class Messenger {
             return;
         }
         for (Player p : world.getPlayers()) {
-            if (!p.hasPermission("sleepvote.mute")) {
+            if (!sleepVoteManager.isMute(p)) {
                 p.playSound(sound, p.getLocation().getPosition(), 1);
             }
         }
