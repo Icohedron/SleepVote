@@ -249,7 +249,6 @@ public class SleepVote {
 
         CommandSpec sleepvoteCommand = CommandSpec.builder()
                 .description(Text.of("The one command for all of SleepVote"))
-                .permission("sleepvote.command")
                 .child(reloadCommand, "reload", "r")
                 .child(hideCommand, "hide", "h")
                 .child(muteCommand, "mute", "m")
