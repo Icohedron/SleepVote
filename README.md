@@ -42,10 +42,10 @@ Any additional updates after 1.0 will follow the familiar "snapshot -> pre-relea
 
 ## Permissions
 ```
-# Gives permissions to everything in the plugin
+# Gives permissions to everything in the plugin. Recommended for admins only
 sleepvote
 
-# Gives permission to execute the commands. Recommended for all users
+# Gives permission to execute all commands. Recommended for admins only
 sleepvote.command
 
 # Gives permission to execute the 'hide' command. Recommended for admins only
@@ -57,13 +57,19 @@ sleepvote.command.mute
 # Gives permission to execute the 'status' command. Recommended for all users
 sleepvote.command.status
 
-# Users with this permission are ignored by the plugin when counting and calculating sleeping players. Recommended only for admins
+# Users with this permission are ignored by the plugin when counting and calculating sleeping players. Recommended for admins only
 # Must be enabled in the config
 sleepvote.hidden
 
 # A typical permission setup for default users:
 # [+] sleepvote.command.mute
 # [+] sleepvote.command.status
+
+# A typical permission setup for admins:
+# [+] sleepvote.command
+
+# A typical permission setup for dedicated admins:
+# [+] sleepvote
 ```
 
 ## Screenshots
