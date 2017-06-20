@@ -19,23 +19,27 @@ import org.spongepowered.api.plugin.Plugin;
 import org.spongepowered.api.service.permission.PermissionDescription;
 import org.spongepowered.api.service.permission.PermissionService;
 import org.spongepowered.api.text.Text;
+import org.spongepowered.api.text.format.TextColors;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
 
-@Plugin(id = "sleepvote", name = "SleepVote", version = "0.6-BETA-1",
+@Plugin(id = "sleepvote", name = "SleepVote", version = "1.0-PRERELEASE-1",
+        description = "Vote to skip the night by sleeping in a bed",
         dependencies = @Dependency(id = "nucleus", optional = true))
 public class SleepVote {
 
     private static final String SETTINGS_CONFIG_NAME = "settings.conf";
 
-    @Inject @ConfigDir(sharedRoot = false) private Path configurationDirectory;
-    @Inject private Logger logger;
+    @Inject @ConfigDir(sharedRoot = false)
+    private Path configurationDirectory;
+
+    @Inject
+    private Logger logger;
 
     private SleepVoteManager sleepVoteManager;
-    private boolean unhideWarning;
 
     @Listener
     public void onInitializationEvent(GameInitializationEvent event) {
@@ -86,7 +90,6 @@ public class SleepVote {
         }
 
         ConfigurationNode root = rootNode.get();
-        unhideWarning = root.getNode("unhide_warning").getBoolean();
         sleepVoteManager = new SleepVoteManager(this, root); // Manages the core functionality of the plugin
 
         Sponge.getEventManager().registerListeners(this, sleepVoteManager);
@@ -167,7 +170,7 @@ public class SleepVote {
                 .build();
 
         CommandSpec hideCommand = CommandSpec.builder()
-                .description(Text.of("Hide yourself from SleepVote"))
+                .description(Text.of("Hide or unhide yourself from SleepVote"))
                 .permission("sleepvote.command.hide")
                 .executor((src, args) -> {
                     if (!(src instanceof Player)) {
@@ -178,16 +181,14 @@ public class SleepVote {
                     Player player = (Player) src;
                     if (sleepVoteManager.isInIgnoredSet(player)) {
                         sleepVoteManager.unignorePlayer(player);
-                        player.sendMessage(sleepVoteManager.getMessenger().addPrefix(Text.of("You are no longer hidden from SleepVote")));
+                        player.sendMessage(sleepVoteManager.getMessenger().addPrefix(Text.of("You are no longer being hidden from SleepVote")));
 
-                        if (unhideWarning) {
-                            if (sleepVoteManager.isInIgnoredGameMode(player)) {
-                                player.sendMessage(sleepVoteManager.getMessenger().addPrefix(Text.of("Note: Although you have successfully been removed from the list of hidden players, you are still in an ignored gamemode. Players with certain gamemodes are ignored by SleepVote. Talk to your server operator for more details")));
-                            }
+                        if (sleepVoteManager.isInIgnoredGameMode(player)) {
+                            player.sendMessage(sleepVoteManager.getMessenger().addPrefix(Text.of("Note: you are still hidden because of your gamemode. Certain gamemodes are being ignored by SleepVote")));
+                        }
 
-                            if (sleepVoteManager.areAdminsIgnored() && player.hasPermission("sleepvote.hidden")) {
-                                player.sendMessage(sleepVoteManager.getMessenger().addPrefix(Text.of("Note: Although you have successfully been removed from the list of hidden players, you still have the permission 'sleepvote.hidden'. It has been detected that SleepVote is configured to always ignore players with this permission. Talk to your server operator for more details")));
-                            }
+                        if (sleepVoteManager.areAdminsIgnored() && player.hasPermission("sleepvote.hidden")) {
+                            player.sendMessage(sleepVoteManager.getMessenger().addPrefix(Text.of("Note: you are still hidden because of your permissions. Players with the permission 'sleepvote.hidden' are being ignored by SleepVote")));
                         }
 
                     } else {
@@ -201,7 +202,7 @@ public class SleepVote {
                 .build();
 
         CommandSpec muteCommand = CommandSpec.builder()
-                .description(Text.of("Stop SleepVote from playing sounds to you"))
+                .description(Text.of("Toggle on/off the sounds played by SleepVote"))
                 .permission("sleepvote.command.mute")
                 .executor((src, args) -> {
                     if (!(src instanceof Player)) {
@@ -236,7 +237,10 @@ public class SleepVote {
                     boolean ignored = sleepVoteManager.isIgnored(player);
                     boolean mute = sleepVoteManager.isMute(player);
 
-                    player.sendMessage(sleepVoteManager.getMessenger().addPrefix(Text.of("Ignored/Hidden: " + ignored + ", Mute Sounds: " + mute)));
+                    Text visiblityText = ignored ? Text.of(TextColors.RED, "hidden") : Text.of(TextColors.GREEN, "visible");
+                    Text soundText = mute ? Text.of(TextColors.RED, "off") : Text.of(TextColors.GREEN, "on");
+
+                    player.sendMessage(sleepVoteManager.getMessenger().addPrefix(Text.of("Visiblity: ", visiblityText, " | Sounds: ", soundText)));
 
                     return CommandResult.success();
 

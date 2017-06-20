@@ -3,7 +3,7 @@ plugins {
 }
 
 group 'io.github.icohedron.sleepvote'
-version = '0.6-BETA-1'
+version = '1.0-PRERELEASE-1'
 
 description = 'Vote to skip the night by sleeping in a bed'
 
