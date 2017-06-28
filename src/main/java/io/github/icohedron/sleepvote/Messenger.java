@@ -27,7 +27,7 @@ class Messenger {
         msg = msg.replace("<required>", Integer.toString(requiredSleeping));
         msg = msg.replace("<percent>", Integer.toString(percent));
         msg = msg.replace("<player>", playerName);
-        Text text = Text.of(TextColors.YELLOW, msg);
+        Text text = Text.of(msg);
 
         return prefix ? addPrefix(text) : text;
     }
@@ -54,4 +54,7 @@ class Messenger {
         return Text.of(prefix, text);
     }
 
+    boolean soundsEnabled() {
+        return playSound;
+    }
 }
