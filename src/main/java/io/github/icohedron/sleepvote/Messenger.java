@@ -54,4 +54,7 @@ class Messenger {
         return Text.of(prefix, text);
     }
 
+    boolean soundsEnabled() {
+        return playSound;
+    }
 }

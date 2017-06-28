@@ -184,11 +184,11 @@ public class SleepVote {
                         player.sendMessage(sleepVoteManager.getMessenger().addPrefix(Text.of("You are no longer being hidden from SleepVote")));
 
                         if (sleepVoteManager.isInIgnoredGameMode(player)) {
-                            player.sendMessage(sleepVoteManager.getMessenger().addPrefix(Text.of("Note: you are still hidden because of your gamemode. Certain gamemodes are being ignored by SleepVote")));
+                            player.sendMessage(sleepVoteManager.getMessenger().addPrefix(Text.of("Note: you are still hidden because of your gamemode. This server has made certain gamemodes hidden from SleepVote")));
                         }
 
                         if (sleepVoteManager.areAdminsIgnored() && player.hasPermission("sleepvote.hidden")) {
-                            player.sendMessage(sleepVoteManager.getMessenger().addPrefix(Text.of("Note: you are still hidden because of your permissions. Players with the permission 'sleepvote.hidden' are being ignored by SleepVote")));
+                            player.sendMessage(sleepVoteManager.getMessenger().addPrefix(Text.of("Note: you are still hidden because of your permissions. This server has made players with the permission 'sleepvote.hidden' hidden from SleepVote")));
                         }
 
                     } else {
@@ -214,6 +214,9 @@ public class SleepVote {
                     if (sleepVoteManager.isMute(player)) {
                         sleepVoteManager.unmutePlayer(player);
                         player.sendMessage(sleepVoteManager.getMessenger().addPrefix(Text.of("SleepVote will now be able to play sounds to you")));
+                        if (!sleepVoteManager.getMessenger().soundsEnabled()) {
+                            player.sendMessage(sleepVoteManager.getMessenger().addPrefix(Text.of("Note: this server has sounds globally disabled for all users regardless of this setting")));
+                        }
                     } else {
                         sleepVoteManager.mutePlayer(player);
                         player.sendMessage(sleepVoteManager.getMessenger().addPrefix(Text.of("SleepVote will no longer play sounds to you")));
@@ -236,6 +239,10 @@ public class SleepVote {
                     Player player = (Player) src;
                     boolean ignored = sleepVoteManager.isIgnored(player);
                     boolean mute = sleepVoteManager.isMute(player);
+
+                    if (!sleepVoteManager.getMessenger().soundsEnabled()) {
+                        mute = true;
+                    }
 
                     Text visibilityText = ignored ? Text.of(TextColors.RED, "hidden") : Text.of(TextColors.GREEN, "visible");
                     Text soundText = mute ? Text.of(TextColors.RED, "off") : Text.of(TextColors.GREEN, "on");
