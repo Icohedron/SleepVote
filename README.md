@@ -13,7 +13,7 @@ This plugin allows players to make a vote to skip the night. This is done simply
 Current versions are "pre-releases". Pre-releases are stable but may still contain a few unobvious/unfound bugs.  
 Users are encouraged to download and try out pre-release versions.  
 It is *very important* for users to report any and all bugs they can find to the [Issue Tracker](https://ore.spongepowered.org/Icohedron/Sleep-Vote/issues)!  
-This will help to ensure that the release version will as stable as it possibly can.
+This will help to ensure that the release version will be as stable as it possibly can.
 
 After a few weeks, if no bugs have been reported, the latest stable version will come out! This version will simply be named "1.0"
 Any additional updates after 1.0 will follow the familiar "snapshot -> pre-release -> release" track.
