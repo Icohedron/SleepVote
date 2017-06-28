@@ -3,10 +3,11 @@ This plugin allows players to make a vote to skip the night. This is done simply
 
 ### Features
 - World-independent votes. A vote to change the time in one world will not affect another
-- Customizable wakeup, enter bed, and exit bed messages
-- Sounds that play on each of the above messages, which can be muted per-user via the command '/sleepvote mute', or for all users by modifying the config value "sounds"
-- Got administrators? They can be hidden from sleep votes using the command '/sleepvote hide' which persists until the server restarts. Got dedicated administrators? Perhaps giving them the permission 'sleepvote.hidden' and enabling "hide_admins" in the config would be for you, since that will keep admins hidden after server restarts as well
-- Players with certain gamemodes may not want to be counted in votes to skip the night. That can be done in the config. By default, only spectator is ignored
+- Only the overworld dimension is affected. People in the Nether and End won't add to the vote or the sleeping requirement
+- Customizable wakeup, enter bed, and exit bed messages. Supports the use of [Minecraft formatting codes](http://minecraft.gamepedia.com/Formatting_codes). Also has sounds that play when these messages are displayed, which can be muted per-user via the command '/sleepvote mute', or globally for all users by modifying the configuration property "sounds"
+- Got administrators? They can be hidden from votes and sleep requirements by using the command '/sleepvote hide' which persists until the server restarts or the plugin is reloaded. Got dedicated administrators? Perhaps giving them the permission 'sleepvote.hidden' and enabling "hide_admins" in the config would be for you, since that will keep admins hidden after server restarts and plugin reloads as well
+- Players with certain gamemodes may not want to be counted in votes to skip the night. This can be set in the configuration file. By default, only spectator is ignored
+- Optional [Nucleus](https://ore.spongepowered.org/Nucleus/Nucleus) integration for allowing AFK players to be ignored during votes
 
 ### Version Notice
 Current versions are "pre-releases". Pre-releases are stable but may still contain a few unobvious/unfound bugs.  
@@ -116,13 +117,13 @@ sleepvote.hidden
 # <required> is the number of players in the world required to be sleeping in order to advance through the night
 # <percent> is simply the percentage of players sleeping out of the number of players required to sleep. Calculated internally as '(sleeping / required) * 100'
 
-# Formatting codes may be used in messages, as shown here: http://minecraft.gamepedia.com/Formatting_codes
-# The default color for these messages is Yellow
+# Formatting codes may be used in messages using '\u00A7' (e.g. "\u00A7cHello!" is will print "Hello!" in red text)
+# A full reference for formatting codes can be found at http://minecraft.gamepedia.com/Formatting_codes/
 
 "messages" {
-    "wakeup" = "Wakey wakey, rise and shine!"
-    "enter_bed" = "<player> wants to sleep! <sleeping>/<required> (<percent>%)"
-    "exit_bed" = "<player> has left their bed. <sleeping>/<required> (<percent>%)"
+    "wakeup" = "\u00A7eWakey wakey, rise and shine!"
+    "enter_bed" = "\u00A7e<player> wants to sleep! \u00A76<sleeping>/<required> (<percent>%)"
+    "exit_bed" = "\u00A7e<player> has left their bed. \u00A76<sleeping>/<required> (<percent>%)"
 }
 
 # Enable or disable the "[SleepVote]" chat prefix on the wakeup, enter_bed, and exit_bed messages (e.g. "[SleepVote] Wakey wakey, rise and shine!" when true, and "Wakey wakey, rise and shine!" when false)
