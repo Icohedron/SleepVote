@@ -31,7 +31,7 @@ import java.util.Optional;
         dependencies = @Dependency(id = "nucleus", optional = true))
 public class SleepVote {
 
-    private static final String SETTINGS_CONFIG_NAME = "settings.conf";
+    private static final String SETTINGS_CONFIG_NAME = "configuration.properties";
 
     @Inject @ConfigDir(sharedRoot = false)
     private Path configurationDirectory;
@@ -151,7 +151,7 @@ public class SleepVote {
             if (optBuilder.isPresent()) {
                 PermissionDescription.Builder builder = optBuilder.get();
                 builder.id("sleepvote.command")
-                        .description(Text.of("Allows the user to execute the sleepvote command"))
+                        .description(Text.of("Allows the user to execute all SleepVote commands"))
                         .assign(PermissionDescription.ROLE_USER, true)
                         .register();
             }
@@ -179,7 +179,7 @@ public class SleepVote {
                     }
 
                     Player player = (Player) src;
-                    if (sleepVoteManager.isInIgnoredSet(player)) {
+                    if (sleepVoteManager.isHidden(player)) {
                         sleepVoteManager.unignorePlayer(player);
                         player.sendMessage(sleepVoteManager.getMessenger().addPrefix(Text.of("You are no longer being hidden from SleepVote")));
 
@@ -237,10 +237,10 @@ public class SleepVote {
                     boolean ignored = sleepVoteManager.isIgnored(player);
                     boolean mute = sleepVoteManager.isMute(player);
 
-                    Text visiblityText = ignored ? Text.of(TextColors.RED, "hidden") : Text.of(TextColors.GREEN, "visible");
+                    Text visibilityText = ignored ? Text.of(TextColors.RED, "hidden") : Text.of(TextColors.GREEN, "visible");
                     Text soundText = mute ? Text.of(TextColors.RED, "off") : Text.of(TextColors.GREEN, "on");
 
-                    player.sendMessage(sleepVoteManager.getMessenger().addPrefix(Text.of("Visiblity: ", visiblityText, " | Sounds: ", soundText)));
+                    player.sendMessage(sleepVoteManager.getMessenger().addPrefix(Text.of("Visiblity: ", visibilityText, " | Sounds: ", soundText)));
 
                     return CommandResult.success();
 
@@ -264,7 +264,7 @@ public class SleepVote {
     }
 
     private void reload() {
-        sleepVoteManager.unregisterListeners();
+        sleepVoteManager.dispose();
         Sponge.getEventManager().unregisterListeners(sleepVoteManager);
         loadConfiguration();
     }
