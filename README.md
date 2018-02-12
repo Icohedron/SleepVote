@@ -6,6 +6,7 @@ This plugin allows players to make a vote to skip the night. This is done simply
 - Choose between having a fixed number of players sleeping, or a percentage of players sleeping. Also supports dynamic requirements, in which the plugin will choose the lower of the two values. (Say there are 50 players. You choose a percentage of 0.5 and a fixed value of 10. The plugin will choose 10 since 10 is lower than 25)
 - Customizable wakeup, enter bed, and exit bed messages. Supports the use of [Minecraft formatting codes](http://minecraft.gamepedia.com/Formatting_codes). Also has sounds that play when these messages are displayed, which can be muted per-user via the command '/sleepvote mute', or globally for all users by modifying the configuration property "sounds"
 - Got administrators? They can be hidden from votes and sleep requirements by using the command '/sleepvote hide' which persists until the server restarts or the plugin is reloaded. Got dedicated administrators? Perhaps giving them the permission 'sleepvote.hidden' and enabling "hide_admins" in the config would be for you, since that will keep admins hidden after server restarts and plugin reloads as well
+- Vanished players are excluded from sleep votes regardless of the value of "hide_admins"
 - Players with certain gamemodes may not want to be counted in votes to skip the night. This can be set in the configuration file. By default, only spectator is ignored
 - Optional [Nucleus](https://ore.spongepowered.org/Nucleus/Nucleus) integration for allowing AFK players to be ignored during votes
 
