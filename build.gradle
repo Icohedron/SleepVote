@@ -1,14 +1,22 @@
 plugins {
+    id 'java'
     id 'org.spongepowered.plugin' version '0.8.1'
+    id 'ninja.miserable.blossom' version '1.0.1'
 }
 
-group 'io.github.icohedron.sleepvote'
-version = '1.0-PRERELEASE-2'
-
+group = 'io.github.icohedron.sleepvote'
+version = '1.1.0-S7.0'
 description = 'Vote to skip the night by sleeping in a bed'
 
 sourceCompatibility = 1.8
 targetCompatibility = 1.8
+
+blossom {
+    def pluginInfoLoc = 'src/main/java/io/github/icohedron/sleepvote/PluginInfo.java'
+    replaceToken '@name@', name, pluginInfoLoc
+    replaceToken '@version@', version, pluginInfoLoc
+    replaceToken '@description@', description, pluginInfoLoc
+}
 
 repositories {
     maven {

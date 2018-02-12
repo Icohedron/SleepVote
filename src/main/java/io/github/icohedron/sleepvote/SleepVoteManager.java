@@ -192,7 +192,6 @@ public class SleepVoteManager {
     }
 
     private int getRequiredPlayerCount(World world) {
-        // TODO: Automatically add exclusions for vanished players -- requires Nucleus to provide some sort of API for that
         Set<Player> players = new HashSet<>(world.getPlayers());
         players.removeIf(this::isIgnored);
 
@@ -209,8 +208,8 @@ public class SleepVoteManager {
     }
 
     boolean isInBed(Player player) {
-        // Doesn't work due to bug: https://forums.spongepowered.org/t/warnings-on-startup-skipping-keys/18338
-//        return player.get(Keys.IS_SLEEPING).filter(k -> k.booleanValue()).isPresent();
+        // IS_SLEEPING key still doesn't work.
+        //return player.get(Keys.IS_SLEEPING).get();
 
         // Workaround: takes advantage of the fact that the player's hitbox shrinks to a (almost) perfect 0.2*0.2*0.2 cube while in a bed.
         // But we only need to check the floored y-values! The player's hitbox is normally greater than 1, so if the floored y-value is 0, then the player must be in a bed! If it's equal to 1 or more, then the player is not in bed.
@@ -255,7 +254,8 @@ public class SleepVoteManager {
         return (ignoreAdmins && player.hasPermission("sleepvote.hidden"))
                 || isInIgnoredGameMode(player)
                 || svPlayerData.isHidden()
-                || isAFK;
+                || isAFK
+                || player.get(Keys.VANISH).get();
     }
 
     boolean isHidden(Player player) {
