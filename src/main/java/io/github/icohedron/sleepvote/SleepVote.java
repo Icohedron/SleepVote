@@ -100,61 +100,43 @@ public class SleepVote {
         // Permission Descriptions
 
         Sponge.getServiceManager().provide(PermissionService.class).ifPresent(permissionService -> {
-            Optional<PermissionDescription.Builder> optBuilder;
+        	PermissionDescription.Builder builder;
 
-            optBuilder = permissionService.newDescriptionBuilder(this);
-            if (optBuilder.isPresent()) {
-                PermissionDescription.Builder builder = optBuilder.get();
-                builder.id("sleepvote.hidden")
-                        .description(Text.of("A user with this permission will be hidden from SleepVote if enabled in the config"))
-                        .assign(PermissionDescription.ROLE_ADMIN, true)
-                        .register();
-            }
+            builder = permissionService.newDescriptionBuilder(this);
+            builder.id("sleepvote.hidden")
+                    .description(Text.of("A user with this permission will be hidden from SleepVote if enabled in the config"))
+                    .assign(PermissionDescription.ROLE_ADMIN, true)
+                    .register();
 
-            optBuilder = permissionService.newDescriptionBuilder(this);
-            if (optBuilder.isPresent()) {
-                PermissionDescription.Builder builder = optBuilder.get();
-                builder.id("sleepvote.command.reload")
-                        .description(Text.of("Allows the user to reload the plugin"))
-                        .assign(PermissionDescription.ROLE_ADMIN, true)
-                        .register();
-            }
+            builder = permissionService.newDescriptionBuilder(this);
+            builder.id("sleepvote.command.reload")
+                    .description(Text.of("Allows the user to reload the plugin"))
+                    .assign(PermissionDescription.ROLE_ADMIN, true)
+                    .register();
 
-            optBuilder = permissionService.newDescriptionBuilder(this);
-            if (optBuilder.isPresent()) {
-                PermissionDescription.Builder builder = optBuilder.get();
-                builder.id("sleepvote.command.hide")
-                        .description(Text.of("Allows the user to hide themself from SleepVote"))
-                        .assign(PermissionDescription.ROLE_ADMIN, true)
-                        .register();
-            }
+            builder = permissionService.newDescriptionBuilder(this);
+            builder.id("sleepvote.command.hide")
+                    .description(Text.of("Allows the user to hide themself from SleepVote"))
+                    .assign(PermissionDescription.ROLE_ADMIN, true)
+                    .register();
 
-            optBuilder = permissionService.newDescriptionBuilder(this);
-            if (optBuilder.isPresent()) {
-                PermissionDescription.Builder builder = optBuilder.get();
-                builder.id("sleepvote.command.mute")
-                        .description(Text.of("Allows the user to mute the sounds played to them by SleepVote"))
-                        .assign(PermissionDescription.ROLE_USER, true)
-                        .register();
-            }
+            builder = permissionService.newDescriptionBuilder(this);
+            builder.id("sleepvote.command.mute")
+                    .description(Text.of("Allows the user to mute the sounds played to them by SleepVote"))
+                    .assign(PermissionDescription.ROLE_USER, true)
+                    .register();
 
-            optBuilder = permissionService.newDescriptionBuilder(this);
-            if (optBuilder.isPresent()) {
-                PermissionDescription.Builder builder = optBuilder.get();
-                builder.id("sleepvote.command.status")
-                        .description(Text.of("Allows the user know about their current mute and hidden status"))
-                        .assign(PermissionDescription.ROLE_USER, true)
-                        .register();
-            }
-
-            optBuilder = permissionService.newDescriptionBuilder(this);
-            if (optBuilder.isPresent()) {
-                PermissionDescription.Builder builder = optBuilder.get();
-                builder.id("sleepvote.command")
-                        .description(Text.of("Allows the user to execute all SleepVote commands"))
-                        .assign(PermissionDescription.ROLE_USER, true)
-                        .register();
-            }
+            builder = permissionService.newDescriptionBuilder(this);
+            builder.id("sleepvote.command.status")
+                    .description(Text.of("Allows the user know about their current mute and hidden status"))
+                    .assign(PermissionDescription.ROLE_USER, true)
+                    .register();
+        
+            builder = permissionService.newDescriptionBuilder(this);
+            builder.id("sleepvote.command")
+                    .description(Text.of("Allows the user to execute all SleepVote commands"))
+                    .assign(PermissionDescription.ROLE_USER, true)
+                    .register();
         });
 
         // Command implementations
