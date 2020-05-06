@@ -17,6 +17,8 @@ import org.spongepowered.api.text.Text;
 import org.spongepowered.api.world.World;
 import org.spongepowered.api.world.storage.WorldProperties;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -30,6 +32,8 @@ public class SleepVoteManager {
     private final Logger logger;
     private final Messenger messenger;
 
+    private final ConfigurationNode config;
+
     private final Map<UUID, SVWorldData> uuidsvWorldDataMap;
     private final Map<UUID, SVPlayerData> uuidsvPlayerDataMap;
 
@@ -37,7 +41,7 @@ public class SleepVoteManager {
     private final boolean messageLogging;
     private final boolean ignoreAdmins;
 
-    private final float requiredPercentSleeping;
+    private final BigDecimal requiredPercentSleeping;
     private final int requiredNumberSleeping;
 
     private final String wakeupMessage;
@@ -54,17 +58,19 @@ public class SleepVoteManager {
         this.sleepVote = sleepVote;
         logger = sleepVote.getLogger();
         messenger = new Messenger(this, configNode.getNode("sound").getBoolean());
+        config = configNode;
 
         // Configure according to the configuration file values
 
-        float reqPercent = configNode.getNode("required_percent_sleeping").getFloat();
+        String reqPercent = configNode.getNode("required_percent_sleeping").getString();
+        BigDecimal reqPercentBD = new BigDecimal(reqPercent);
         requiredNumberSleeping = configNode.getNode("required_number_sleeping").getInt();
 
-        if (reqPercent < 0.0f || reqPercent > 1.0f) {
-            requiredPercentSleeping = 0.5f;
+        if (reqPercentBD.compareTo(BigDecimal.ZERO) < 0 || reqPercentBD.compareTo(BigDecimal.ONE) > 0) {
+            requiredPercentSleeping = new BigDecimal("0.5");
             logger.info("\"required_percent_sleeping\": The value of '" + requiredPercentSleeping + "' is invalid, it must be in the inclusive range of [0.0, 1.0]. Using default of 0.5");
         } else {
-            requiredPercentSleeping = reqPercent;
+            requiredPercentSleeping = reqPercentBD;
         }
 
         enablePrefix = configNode.getNode("sleepvote_prefix").getBoolean();
@@ -139,7 +145,7 @@ public class SleepVoteManager {
                     if (numSleeping >= required) {
                         svWorldData.setSkipping(true);
                         Task.builder().execute(() -> { // Add delay so that the night isn't instantly skipped when the last person sleeps
-                            worldProperties.setWorldTime(((int) Math.ceil(worldProperties.getWorldTime() / 24000.0f)) * 24000); // Set time to the next multiple 24000 ticks (equivalent to '/time set 0')
+                            worldProperties.setWorldTime(((int) Math.ceil(worldProperties.getWorldTime() / 24000.0d)) * 24000); // Set time to the next multiple 24000 ticks (equivalent to '/time set 0')
                             worldProperties.setRaining(false);
                             worldProperties.setThundering(false);
 
@@ -195,16 +201,39 @@ public class SleepVoteManager {
         Set<Player> players = new HashSet<>(world.getPlayers());
         players.removeIf(this::isIgnored);
 
-        int requiredFromPercent = (int) (players.size() * requiredPercentSleeping);
+        int roundingMode = config.getNode("rounding_mode").getInt(2);
+        BigDecimal requiredFromPercentBD = BigDecimal.valueOf(players.size()).multiply(requiredPercentSleeping);
+        int requiredFromPercent;
+        switch(roundingMode) {
+            case 0:
+                requiredFromPercent = requiredFromPercentBD.setScale(0, RoundingMode.HALF_UP).intValue();
+                break;
+            case 1:
+                requiredFromPercent = requiredFromPercentBD.setScale(0, RoundingMode.FLOOR).intValue();
+                break;
+            case 2:
+            default:
+                requiredFromPercent = requiredFromPercentBD.setScale(0, RoundingMode.CEILING).intValue();
+                break;
+        }
 
         int required;
         if (requiredNumberSleeping <= 0) {
             required = requiredFromPercent;
         } else {
-            required = Math.min(requiredFromPercent, requiredNumberSleeping);
+            // Cap the required number of players sleeping at the current player count
+            int realRequiredNumberSleeping = Math.min(players.size(), requiredNumberSleeping);
+
+            boolean useHigherRequirementType = config.getNode("use_higher_requirement_type").getBoolean(false);
+            if(useHigherRequirementType) {
+                required = Math.max(requiredFromPercent, realRequiredNumberSleeping);
+            }
+            else {
+                required = Math.min(requiredFromPercent, realRequiredNumberSleeping);
+            }
         }
 
-        return required < 1 ? 1 : required;
+        return Math.max(required, 1);
     }
 
     boolean isInBed(Player player) {

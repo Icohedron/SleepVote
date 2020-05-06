@@ -19,7 +19,7 @@ class Messenger {
     Text parseMessage(String message, int numSleeping, int requiredSleeping, String playerName, boolean prefix) {
         int percent = 0;
         if (requiredSleeping > 0) {
-            percent = (int) (numSleeping * 100.0f / requiredSleeping);
+            percent = (int) (numSleeping * 100.0d / requiredSleeping);
         }
 
         String msg = message;

@@ -5,7 +5,7 @@ plugins {
 }
 
 group = 'io.github.icohedron.sleepvote'
-version = '1.1.0-S7.0'
+version = '1.2.0-S7.0'
 description = 'Vote to skip the night by sleeping in a bed'
 
 sourceCompatibility = 1.8
