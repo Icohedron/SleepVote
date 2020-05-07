@@ -74,33 +74,23 @@ sleepvote.hidden
 ```
 #### Counting Required Players ####
 # You are given two options: percent and number
-# If both are specified, the plugin will choose the lower of the two requirements
-
-# Below are some presets. '%' is the value for "required_percent_sleeping" and '#' is the value for "required_number_sleeping"
-
-# Preset: Percent Only (Default)
-# '%' = <any percent>
-# '#' = 0
-
-# Preset: Number Only
-# '%' = 1.0
-# '#' = <any number>
-
-# Preset: Dynamic
-# The plugin will choose the smaller of the two requirements. (e.g. Say the population is 50 and '%' = 0.5 and '#' = 10. The plugin will choose 10 as a requirement rather than 25 (which is 50 * 0.5))
-# '%' = <any percent>
-# '#' = <any number>
-
-# Now here's the fun part. You decide how you want it!
+# If both are specified, the plugin will choose one of the two requirements based on the "use_higher_requirement_type" option
 
 # Percentage of players (in a world) required to be sleeping in order to advance through the night
 # Must be a value in the inclusive range of [0.0,1.0]. If set to zero, it will only require one player
 "required_percent_sleeping" = 0.5
 
+# Method used to round the number of players (in a world) required to be sleeping in order to advance through the night
+# 0 = Standard rounding (round up and down), 1 = Round down always, 2 = Round up always
+"rounding_mode" = 2
+
 # Number of players (in a world) required to be sleeping in order to advance through the night
-# If there are less players than what is specified, then it will use the percentage instead
-# Set to a value less than or equal to (<=) 0 to disable. It is disabled by default
+# Set to a value less than or equal to (<=) 0 to disable.
 "required_number_sleeping" = 0
+
+# Whether to use the higher of the two requirements (percentage or number) to determine how many players are required to be sleeping
+# (e.g. Say the population is 50 and 'required_percent_sleeping' = 0.5 and 'required_number_sleeping' = 10. If this option is false, the plugin will choose 10 as the requirement rather than 25 (which is 50 * 0.5). If this option is true, the plugin will choose 25 as the requirement)
+"use_higher_requirement_type" = false
 
 #### Messages ####
 
