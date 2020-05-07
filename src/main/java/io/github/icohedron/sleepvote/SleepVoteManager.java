@@ -62,9 +62,9 @@ public class SleepVoteManager {
 
         // Configure according to the configuration file values
 
-        String reqPercent = configNode.getNode("required_percent_sleeping").getString();
+        String reqPercent = configNode.getNode("required_percent_sleeping").getString("0.5");
         BigDecimal reqPercentBD = new BigDecimal(reqPercent);
-        requiredNumberSleeping = configNode.getNode("required_number_sleeping").getInt();
+        requiredNumberSleeping = configNode.getNode("required_number_sleeping").getInt(0);
 
         if (reqPercentBD.compareTo(BigDecimal.ZERO) < 0 || reqPercentBD.compareTo(BigDecimal.ONE) > 0) {
             requiredPercentSleeping = new BigDecimal("0.5");
@@ -73,9 +73,9 @@ public class SleepVoteManager {
             requiredPercentSleeping = reqPercentBD;
         }
 
-        enablePrefix = configNode.getNode("sleepvote_prefix").getBoolean();
-        messageLogging = configNode.getNode("enable_logging").getBoolean();
-        ignoreAdmins = configNode.getNode("ignore_admins").getBoolean();
+        enablePrefix = configNode.getNode("sleepvote_prefix").getBoolean(true);
+        messageLogging = configNode.getNode("enable_logging").getBoolean(true);
+        ignoreAdmins = configNode.getNode("ignore_admins").getBoolean(false);
 
         wakeupMessage = configNode.getNode("messages", "wakeup").getString("Wakey wakey, rise and shine!");
         enterBedMessage = configNode.getNode("messages", "enter_bed").getString("<player> wants to sleep! <sleeping>/<active> (<percent>%)");
@@ -237,8 +237,8 @@ public class SleepVoteManager {
     }
 
     boolean isInBed(Player player) {
-        // IS_SLEEPING key still doesn't work.
-        //return player.get(Keys.IS_SLEEPING).get();
+        // IS_SLEEPING key still doesn't work. (as of May 6, 2020)
+        // return player.get(Keys.IS_SLEEPING).get();
 
         // Workaround: takes advantage of the fact that the player's hitbox shrinks to a (almost) perfect 0.2*0.2*0.2 cube while in a bed.
         // But we only need to check the floored y-values! The player's hitbox is normally greater than 1, so if the floored y-value is 0, then the player must be in a bed! If it's equal to 1 or more, then the player is not in bed.
