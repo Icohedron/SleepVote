@@ -1,6 +1,6 @@
 package io.github.icohedron.sleepvote;
 
-import io.github.nucleuspowered.nucleus.api.events.NucleusAFKEvent;
+import io.github.nucleuspowered.nucleus.api.module.afk.event.NucleusAFKEvent;
 import org.spongepowered.api.entity.living.player.Player;
 import org.spongepowered.api.event.Listener;
 import org.spongepowered.api.event.filter.cause.First;
