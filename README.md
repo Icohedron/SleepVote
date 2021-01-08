@@ -1,3 +1,6 @@
+# [CURRENTLY DISCONTINUED]
+If you would like to become the new maintainer of this project, please contact me.
+
 # Sleep Vote
 This plugin allows players to make a vote to skip the night. This is done simply by sleeping in a bed.
 
