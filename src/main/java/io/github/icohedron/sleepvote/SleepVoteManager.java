@@ -1,5 +1,6 @@
 package io.github.icohedron.sleepvote;
 
+import io.github.nucleuspowered.nucleus.api.module.afk.NucleusAFKService;
 import ninja.leaping.configurate.ConfigurationNode;
 import org.slf4j.Logger;
 import org.spongepowered.api.Sponge;
@@ -48,9 +49,9 @@ public class SleepVoteManager {
     private final String enterBedMessage;
     private final String exitBedMessage;
 
-    private final boolean[] ignoredGameModes;
+    private NucleusAFKService afkService;
 
-    private AFKManager afkManager;
+    private final boolean[] ignoredGameModes;
 
     private Task votingUpdateLoop;
 
@@ -92,8 +93,7 @@ public class SleepVoteManager {
         if (configNode.getNode("ignore_afk_players").getBoolean()) {
             Optional<PluginContainer> nucleus = Sponge.getPluginManager().getPlugin("nucleus");
             if (nucleus.isPresent()) {
-                afkManager = new AFKManager(this);
-                Sponge.getEventManager().registerListeners(sleepVote, afkManager);
+                afkService = Sponge.getServiceManager().provide(NucleusAFKService.class).get();
             } else {
                 logger.warn("Nucleus not detected. Some requested functionality may be missing");
             }
@@ -275,8 +275,8 @@ public class SleepVoteManager {
 
     boolean isIgnored(Player player) {
         boolean isAFK = false;
-        if (afkManager != null) {
-            isAFK = afkManager.isAFK(player.getUniqueId());
+        if (afkService != null) {
+            isAFK = afkService.isAFK(player);
         }
 
         SVPlayerData svPlayerData = getSVPlayerData(player);
@@ -316,9 +316,6 @@ public class SleepVoteManager {
     }
 
     void dispose() {
-        if (afkManager != null) {
-            Sponge.getEventManager().unregisterListeners(afkManager);
-        }
         votingUpdateLoop.cancel();
     }
 }
